@@ -23,6 +23,7 @@
 #include "Hilbert/abstract_hilbert.hpp"
 #include "Hilbert/bosons.hpp"
 #include "Hilbert/custom_hilbert.hpp"
+#include "Hilbert/spinorbital.hpp"
 #include "Hilbert/spins.hpp"
 
 namespace py = pybind11;
@@ -107,6 +108,26 @@ void AddCustomHilbert(py::module subm) {
            )EOF");
 }
 
+void AddSpinOrbital(py::module &subm) {
+  py::class_<SpinOrbital, AbstractHilbert, std::shared_ptr<SpinOrbital>>(
+      subm, "SpinOrbital",
+      R"EOF(A spin orbital hilbert space for quantum chemistry.)EOF")
+      .def(py::init<const AbstractGraph &, const int>(), py::keep_alive<1, 2>(),
+           py::arg("graph"), py::arg("nelec"),
+           R"EOF(
+           Constructs a new ``SpinOrbital`` given a graph and a list of
+           eigenvalues of the states.
+
+           Args:
+               graph: Graph representation of sites.
+               nelec: The number of electrons in the system.
+
+           Examples:
+               Simple custom hilbert space.
+
+           )EOF");
+}
+
 void AddSpins(py::module subm) {
   py::class_<Spin, AbstractHilbert, std::shared_ptr<Spin>>(
       subm, "Spin", R"EOF(Hilbert space composed of spin states.)EOF")
@@ -155,7 +176,7 @@ void AddSpins(py::module subm) {
                ```
            )EOF");
 }
-}  // namespace
+} // namespace
 
 void AddHilbertModule(py::module m) {
   auto subm = m.def_submodule("hilbert");
@@ -235,21 +256,23 @@ void AddHilbertModule(py::module m) {
           [](const AbstractHilbert &self) { return self.GetIndex().NStates(); },
           R"EOF(int: The total dimension of the many-body Hilbert space.
                 Throws an exception iff the space is not indexable.)EOF")
-      .def("number_to_state",
-           [](const AbstractHilbert &self, int i) {
-             return self.GetIndex().NumberToState(i);
-           },
-           py::arg("i"),
-           R"EOF(
+      .def(
+          "number_to_state",
+          [](const AbstractHilbert &self, int i) {
+            return self.GetIndex().NumberToState(i);
+          },
+          py::arg("i"),
+          R"EOF(
            Returns the visible configuration corresponding to the i-th basis state
            for input i. Throws an exception iff the space is not indexable.
       )EOF")
-      .def("state_to_number",
-           [](const AbstractHilbert &self, const Eigen::VectorXd &conf) {
-             return self.GetIndex().StateToNumber(conf);
-           },
-           py::arg("conf"),
-           R"EOF(Returns index of the given many-body configuration.
+      .def(
+          "state_to_number",
+          [](const AbstractHilbert &self, const Eigen::VectorXd &conf) {
+            return self.GetIndex().StateToNumber(conf);
+          },
+          py::arg("conf"),
+          R"EOF(Returns index of the given many-body configuration.
                 Throws an exception iff the space is not indexable.)EOF")
       .def(
           "states",
@@ -269,6 +292,7 @@ void AddHilbertModule(py::module m) {
   AddSpins(subm);
   AddBosons(subm);
   AddCustomHilbert(subm);
+  AddSpinOrbital(subm);
 }
 
-}  // namespace netket
+} // namespace netket
