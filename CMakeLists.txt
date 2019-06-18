@@ -147,7 +147,8 @@ endif()
 
 # Set -O3 in debug mode unless explicitly disabled
 if((${CMAKE_BUILD_TYPE} STREQUAL "Debug") AND NOT NETKET_DISABLE_OPTIMIZATION)
-    set(CMAKE_CXX_FLAGS  "${CMAKE_CXX_FLAGS} -O3")
+  # set(CMAKE_CXX_FLAGS  "${CMAKE_CXX_FLAGS} -O3")
+  set(CMAKE_CXX_FLAGS  "${CMAKE_CXX_FLAGS}")
 endif()
 
 if(MSVC)

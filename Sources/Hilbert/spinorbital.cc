@@ -19,7 +19,7 @@ namespace netket {
 SpinOrbital::SpinOrbital(const AbstractGraph &graph, const int nelec)
     : graph_(graph), nelec_(nelec) {
   size_ = graph.Size();
-  norb_ = local_.size();
+  norb_ = graph.Size();
   InfoMessage() << "SpinOrbital Hilbert space created" << std::endl;
   InfoMessage() << nelec_ << " electons in " << norb_ << " spin orbitals"
                 << std::endl;

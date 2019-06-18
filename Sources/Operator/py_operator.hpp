@@ -15,6 +15,7 @@
 #ifndef NETKET_PYOPERATOR_HPP
 #define NETKET_PYOPERATOR_HPP
 
+// clang-format off
 #include <pybind11/complex.h>
 #include <pybind11/eigen.h>
 #include <pybind11/pybind11.h>
@@ -27,6 +28,8 @@
 #include "py_bosonhubbard.hpp"
 #include "py_graph_operator.hpp"
 #include "py_local_operator.hpp"
+#include "py_qc_hamiltonian.hpp"
+// clang-format on
 
 namespace py = pybind11;
 
@@ -85,10 +88,11 @@ void AddOperatorModule(py::module &m) {
 
   AddBoseHubbard(subm);
   AddLocalOperator(subm);
+  AddQCHamiltonian(subm);
   AddGraphOperator(subm);
   AddMatrixWrapper(subm);
 }
 
-}  // namespace netket
+} // namespace netket
 
 #endif
