@@ -61,20 +61,23 @@ private:
   std::vector<StateType> states_;
   std::vector<ConnType> connected_;
 
-  double constant_;
   std::size_t nops_;
 
   // QC Stuff
-  const Eigen::MatrixXd &h_;
-  const Eigen::MatrixXd &g_;
+  const Eigen::MatrixXd h_;
+  const Eigen::MatrixXd g_;
   const int norb_;
+  const int nmo_;
+  const double constant_;
 
   // static constexpr double mel_cutoff_ = 1.0e-6;
 
 public:
   explicit QCHamiltonian(std::shared_ptr<const AbstractHilbert> hilbert,
-                         const Eigen::MatrixXd &h, const Eigen::MatrixXd &g)
-      : AbstractOperator(hilbert), h_(h), g_(g), norb_(hilbert->Size()) {
+                         const Eigen::MatrixXd &h, const Eigen::MatrixXd &g,
+                         double e0)
+      : AbstractOperator(hilbert), h_(h), g_(g), norb_(hilbert->Size()),
+        nmo_(hilbert->Size()), constant_(e0) {
     // Check that dimension of one and two body integrals match dimension of the
     // hilbert space
     if (norb_ != h_.rows() * 2 || norb_ * norb_ != g_.rows() * 4) {
@@ -118,96 +121,100 @@ public:
     // iterate over open orbitals to generate creation operators
     // for
 
-    // One-body excitations
-    for (auto j : closed) {
-      mel[0] += h_(j / 2, j / 2);
+    // One-body excitations and second term in two-body excitations (shown
+    // below)
+    for (auto q : closed) {
+      mel[0] += h_(q / 2, q / 2);
 
       // Off diagonal excitations
-      for (auto i : open) {
-        if (h_(i / 2, j / 2) > 0) {
+      for (auto p : open) {
+        if (h_(p / 2, q / 2) > 0) {
           // Skip if i and j don't both act on up (or down) spin
-          if (i % 2 != j % 2) {
+          if (p % 2 != q % 2) {
             continue;
           }
-          connectors.push_back({i, j});
+          connectors.push_back({p, q});
           // Create new configuration
           std::vector<double> new_state = current_conf;
-          new_state.at(j) = 0.;
-          new_state.at(i) = 1.;
-          newconfs.push_back(new_state);
-          // mel.push_back(Parity(current_conf, i, j) * h_(i / 2, j / 2));
+          new_state.at(q) = 0.;
+          new_state.at(p) = 1.;
+          newconfs.push_back({1., 0.});
+          mel.push_back(h_(p / 2, q / 2));
+
+          // Two body part (slightly different than below)
+          // (ps|sq) p^\dagger q
+          // for (auto s : closed) {
+          //   // TODO need parity
+          //   mel.back() -= g_(p / 2 * nmo_ + s, s / 2 * nmo_ + q);
+          // }
+          mel.back() *= Parity(current_conf, p, q);
         }
       }
     }
 
     // Two-body excitations
-    // a^\dagger_i a^\dagger_j a_k a_l
-    // k -> j
-    // l -> i
-    // for (auto i : open) {
-    //   for (auto l : closed) {
-    //     if (i % 2 != l % 2) {
+    // two body integrals from PySCF (i.e. eris) are stored as (pq|rs)
+    // The two body part of the hamiltonian is
+    // (pq|rs) p^\dagger r^\dagger s q - (pq|rs) \delta_{qr} p^\dagger s
+    for (auto p : open) {
+      for (auto q : closed) {
+        if (p % 2 != q % 2) {
+          continue;
+        }
+        for (auto r : open) {
+          for (auto s : closed) {
+            if (r % 2 != s % 2) {
+              continue;
+            }
+            if (g_(p / 2 * nmo_ + q, r / 2 * nmo_ + s) > 0) {
+              connectors.push_back({p, q, r, s});
+              newconfs.push_back({1., 0., 1., 0.});
+              mel.push_back(
+                  g_(p / 2 * nmo_ + q, r / 2 * nmo_ + s)); // Need parity here
+            }
+          }
+        }
+      }
+    }
+
+    // for (auto r : open) {
+    //   for (auto s : closed) {
+    //     if (r % 2 != s % 2) {
     //       continue;
     //     }
-    //     for (auto k : closed) {
+    //     for (auto q : closed) {
+    //
     //       // Diagonal in k
-    //       connectors.push_back({i, l});
+    //       connectors.push_back({r, s});
     //       std::vector<double> diag_conf = current_conf;
-    //       diag_conf.at(l) = 0.;
-    //       diag_conf.at(i) = 1.;
-    //       newconfs.push_back(diag_conf);
-    //       mel.push_back(Parity(current_conf, i, l) *
-    //                     g_(i / 2 * norb_ + k / 2, k / 2 * norb_ + l / 2));
+    //       diag_conf.at(s) = 0.;
+    //       diag_conf.at(r) = 1.;
+    //       newconfs.push_back({1., 0.});
     //
-    //       for (auto j : open) {
-    //         if (j % 2 != k % 2) {
-    //           continue;
-    //         }
-    //         //
-    //         connectors.push_back({i, j, k, l});
-    //         std::vector<double> conf(v.data(), v.data() + v.size());
-    //         conf.at(l) = 0.;
-    //         conf.at(i) = 1.;
-    //         double sign = Parity(current_conf, i, l);
+    //       mel.push_back(Parity(current_conf, r, s) *
+    //                     g_(i / 2 * nmo_ + k / 2, k / 2 * nmo_ + l / 2));
+
+    // for (auto j : open) {
+    //   if (j % 2 != k % 2) {
+    //     continue;
+    //   }
+    //   if (l / 2 == k / 2 && i / 2 == k / 2 && i / 2 != j / 2) {
+    //     continue;
+    //   }
+    //   //
+    //   connectors.push_back({i, j, k, l});
+    //   std::vector<double> conf(v.data(), v.data() + v.size());
+    //   conf.at(l) = 0.;
+    //   conf.at(i) = 1.;
+    //   double sign = Parity(current_conf, i, l);
     //
-    //         sign *= Parity(conf, j, k);
-    //         newconfs.push_back(conf);
-    //         mel.push_back(sign *
-    //                       g_(i / 2 * norb_ + j / 2, k / 2 * norb_ + l / 2));
-    //       }
+    //   sign *= Parity(conf, j, k);
+    //   newconfs.push_back({1., 1., 0., 0.});
+    //   mel.push_back(sign *
+    //                 g_(i / 2 * nmo_ + j / 2, k / 2 * nmo_ + l / 2));
     //     }
     //   }
     // }
-
-    // for (int i = 0; i < norbs_; i++) {
-    //   if (){continue;}
-    //
-    //   // Diagonal excitations
-    //   mel[0] += h_(i, i);
-    //
-    //   // Off-diagonal excitations
-    //   for (intj = 0; j < norbs_; j++) {
-    //     if (h_(i, j) > 0) {
-    //       connectors.push_back({i, j});
-    //     }
-    //   }
-    // }
-
-    // for (std::size_t opn = 0; opn < nops_; opn++) {
-    //   int st1 = StateNumber(v, opn);
-    //
-    //   assert(st1 < int(mat_[opn].size()));
-    //   assert(st1 < int(connected_[opn].size()));
-    //
-    //   mel[0] += (mat_[opn][st1][st1]);
-    //
-    //   // off-diagonal part
-    //   for (auto st2 : connected_[opn][st1]) {
-    //     connectors.push_back(sites_[opn]);
-    //     assert(st2 < int(states_[opn].size()));
-    //     newconfs.push_back(states_[opn][st2]);
-    //     mel.push_back(mat_[opn][st1][st2]);
-    //   }
     // }
   }
 
