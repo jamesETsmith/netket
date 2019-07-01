@@ -105,49 +105,30 @@ public:
     newconfs.resize(1);
     mel.resize(1);
 
-    mel[0] = constant_;
+    // mel[0] = constant_;
+    mel[0] = 0;
     connectors[0].resize(0);
     newconfs[0].resize(0);
 
-    std::vector<int> open;   // Keep track of open spin orbitals
-    std::vector<int> closed; // Keep trach of closed spin orbitals
-    GetOpenClosed(v, open, closed);
+    std::vector<int> occ;   // Keep track of occ spin orbitals
+    std::vector<int> unocc; // Keep trach of unocc spin orbitals
+    GetOpenClosed(v, occ, unocc);
     std::vector<double> current_conf(v.data(), v.data() + v.size());
 
-    // TODO good up till here
-
     // One-body excitations
-    // Iterate  over closed orbitals to generate annihilation operators the
-    // iterate over open orbitals to generate creation operators
-    // for
-
-    // One-body excitations and second term in two-body excitations (shown
-    // below)
-    for (auto q : closed) {
+    for (auto q : unocc) {
       mel[0] += h_(q / 2, q / 2);
 
       // Off diagonal excitations
-      for (auto p : open) {
+      for (auto p : occ) {
         if (h_(p / 2, q / 2) > 0) {
           // Skip if i and j don't both act on up (or down) spin
           if (p % 2 != q % 2) {
             continue;
           }
           connectors.push_back({p, q});
-          // Create new configuration
-          std::vector<double> new_state = current_conf;
-          new_state.at(q) = 0.;
-          new_state.at(p) = 1.;
           newconfs.push_back({1., 0.});
-          mel.push_back(h_(p / 2, q / 2));
-
-          // Two body part (slightly different than below)
-          // (ps|sq) p^\dagger q
-          // for (auto s : closed) {
-          //   // TODO need parity
-          //   mel.back() -= g_(p / 2 * nmo_ + s, s / 2 * nmo_ + q);
-          // }
-          mel.back() *= Parity(current_conf, p, q);
+          mel.push_back(Parity(v, p, q) * h_(p / 2, q / 2));
         }
       }
     }
@@ -155,100 +136,135 @@ public:
     // Two-body excitations
     // two body integrals from PySCF (i.e. eris) are stored as (pq|rs)
     // The two body part of the hamiltonian is
-    // (pq|rs) p^\dagger r^\dagger s q - (pq|rs) \delta_{qr} p^\dagger s
-    for (auto p : open) {
-      for (auto q : closed) {
+    // (pq|rs) p^\dagger q r^\dagger s
+    for (auto q : unocc) {
+      mel[0] += g_(q / 2 * nmo_ + q, q / 2 * nmo_ + q); // All diag
+
+      for (auto p : occ) {
         if (p % 2 != q % 2) {
           continue;
         }
-        for (auto r : open) {
-          for (auto s : closed) {
+
+        // Partial diagonal
+        connectors.push_back({p, q});
+        newconfs.push_back({1., 0.});
+        mel.push_back(0.);
+        Complex &partial_diag_mel = mel.back();
+
+        for (auto r : occ) {
+          if (r == p) {
+            continue;
+          }
+          // Partial diagonal
+          partial_diag_mel +=
+              Parity(v, p, q) * g_(p / 2 * nmo_ + q, r / 2 * nmo_ + r);
+          partial_diag_mel +=
+              Parity(v, p, q) * g_(r / 2 * nmo_ + r, p / 2 * nmo_ + q);
+
+          // All indices are different
+          // p != q != r != s
+          for (auto s : unocc) {
+            if (s == q) {
+              continue;
+            }
             if (r % 2 != s % 2) {
               continue;
             }
             if (g_(p / 2 * nmo_ + q, r / 2 * nmo_ + s) > 0) {
               connectors.push_back({p, q, r, s});
               newconfs.push_back({1., 0., 1., 0.});
-              mel.push_back(
-                  g_(p / 2 * nmo_ + q, r / 2 * nmo_ + s)); // Need parity here
+              mel.push_back(Parity(v, p, q, r, s) *
+                            g_(p / 2 * nmo_ + q, r / 2 * nmo_ + s));
             }
           }
         }
       }
-    }
+    } // End two body
+  }   // End FindConn
 
-    // for (auto r : open) {
-    //   for (auto s : closed) {
-    //     if (r % 2 != s % 2) {
-    //       continue;
-    //     }
-    //     for (auto q : closed) {
-    //
-    //       // Diagonal in k
-    //       connectors.push_back({r, s});
-    //       std::vector<double> diag_conf = current_conf;
-    //       diag_conf.at(s) = 0.;
-    //       diag_conf.at(r) = 1.;
-    //       newconfs.push_back({1., 0.});
-    //
-    //       mel.push_back(Parity(current_conf, r, s) *
-    //                     g_(i / 2 * nmo_ + k / 2, k / 2 * nmo_ + l / 2));
-
-    // for (auto j : open) {
-    //   if (j % 2 != k % 2) {
-    //     continue;
-    //   }
-    //   if (l / 2 == k / 2 && i / 2 == k / 2 && i / 2 != j / 2) {
-    //     continue;
-    //   }
-    //   //
-    //   connectors.push_back({i, j, k, l});
-    //   std::vector<double> conf(v.data(), v.data() + v.size());
-    //   conf.at(l) = 0.;
-    //   conf.at(i) = 1.;
-    //   double sign = Parity(current_conf, i, l);
-    //
-    //   sign *= Parity(conf, j, k);
-    //   newconfs.push_back({1., 1., 0., 0.});
-    //   mel.push_back(sign *
-    //                 g_(i / 2 * nmo_ + j / 2, k / 2 * nmo_ + l / 2));
-    //     }
-    //   }
-    // }
-    // }
-  }
-
-  void GetOpenClosed(VectorConstRefType v, std::vector<int> &open,
-                     std::vector<int> &closed) const {
-    // Find open and closed spin orbitals
+  void GetOpenClosed(VectorConstRefType v, std::vector<int> &occ,
+                     std::vector<int> &unocc) const {
+    // Find occ and unocc spin orbitals
     for (int i = 0; i < norb_; i++) {
       if (v(i) == 0) { // unoccupied
-        open.push_back(i);
+        occ.push_back(i);
       } else { // occupied
-        closed.push_back(i);
+        unocc.push_back(i);
       }
     }
   }
 
-  double Parity(std::vector<double> &conf, int i, int j) const {
-    // TODO check
+  double Parity(VectorConstRefType v, int p, int q) const {
+    // p^+ q
+    // q -> p
     double sign = 1.0;
 
     // Annihilation operator
-    for (int b = 0; b < j; b++) {
-      if (conf.at(b) == 1.) {
+    for (int b = 0; b < q; b++) {
+      if (v(b) == 1.) {
         sign *= -1.0;
       }
     }
 
     // Creation operator
-    for (int a = 0; a < j; a++) {
-      if (conf.at(a) == 1.) {
+    for (int a = 0; a < p; a++) {
+      if (v(a) == 1.) {
         sign *= -1.0;
       }
     }
 
-    if (i >= j) {
+    if (p >= q) {
+      sign *= -1.;
+    }
+    return sign;
+  }
+
+  double Parity(VectorConstRefType v, int p, int q, int r, int s) const {
+    // p^+ q r^+ s
+    // q -> p
+    // s -> r
+    double sign = 1.0;
+
+    // S
+    for (int d = 0; d < s; d++) {
+      if (v(d) == 1.) {
+        sign *= -1.0;
+      }
+    }
+
+    // R^+
+    for (int c = 0; c < r; c++) {
+      if (v(c) == 1.) {
+        sign *= -1.0;
+      }
+    }
+
+    if (r >= s) {
+      sign *= -1.;
+    }
+
+    // Q
+    for (int b = 0; b < q; b++) {
+      if (v(b) == 1.) {
+        sign *= -1.0;
+      }
+    }
+
+    // For the other two cases the sign doesn't change
+    if ((q >= s && q < r) || (q < s && q >= r)) {
+      sign *= -1.;
+    }
+
+    // P^+
+    for (int a = 0; a < p; a++) {
+      if (v(a) == 1.) {
+        sign *= -1.0;
+      }
+    }
+
+    // For the other four cases the sign doesn't change
+    if ((p >= q && p >= r && p >= s) || (p >= q && p < r && p < s) ||
+        (p < q && p >= r && p < s) || (p < q && p < r && p >= s)) {
       sign *= -1.;
     }
     return sign;

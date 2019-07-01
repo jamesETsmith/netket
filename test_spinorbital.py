@@ -28,6 +28,7 @@ h = mf.mo_coeff.T.dot(mf.get_hcore()).dot(mf.mo_coeff)
 cisolver = fci.direct_spin1.FCI(mol)
 e_exact, ci = cisolver.kernel(h, g, h.shape[1], mol.nelec, ecore=mol.energy_nuc())
 print("PySCF FCI Energy:", e_exact)
+print("Nuclear Repulsion =", mol.energy_nuc())
 
 #
 # NetKet
@@ -37,7 +38,9 @@ hi = nk.hilbert.SpinOrbital(
     graph=nk.graph.Hypercube(length=nmo * 2, n_dim=1), nelec=nelec
 )
 
-ham = nk.operator.QCHamiltonian(hilbert=hi, h=h, g=g.reshape(nmo ** 2, nmo ** 2))
+ham = nk.operator.QCHamiltonian(
+    hilbert=hi, h=h, g=g.reshape(nmo ** 2, nmo ** 2), e0=mf.energy_nuc()
+)
 # exit(0)
 
 # Machine
@@ -57,4 +60,4 @@ gs = nk.variational.Vmc(
 
 # exit(0)
 # pdb.set_trace()
-gs.run(output_prefix="test", n_iter=300, save_params_every=10)
+gs.run(output_prefix="test", n_iter=10, save_params_every=1)
