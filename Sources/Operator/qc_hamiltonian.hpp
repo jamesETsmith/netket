@@ -113,22 +113,95 @@ public:
     std::vector<int> occ;   // Keep track of occ spin orbitals
     std::vector<int> unocc; // Keep trach of unocc spin orbitals
     GetOpenClosed(v, occ, unocc);
-    std::vector<double> current_conf(v.data(), v.data() + v.size());
+    std::vector<double> conf(v.data(), v.data() + v.size());
+
+    struct DeOp {
+      // Adjusts the occ and unocc vectors during loops to account for a
+      // destruction operator being applied.
+
+      int q_;
+      std::vector<int> &occ;
+      std::vector<int> &unocc;
+
+      // Modifies occ and unocc
+      DeOp(int q, std::vector<int> &occ, std::vector<int> &unocc)
+          : q_(q), occ(occ), unocc(unocc) {
+        // Remove s from occ
+        int q_ind;
+        for (int i = 0; i < occ.size(); i++) {
+          if (occ[i] == q_) {
+            q_ind = i;
+            break;
+          }
+        }
+        occ.erase(occ.begin() + q_ind);
+
+        // Add s to unocc
+        unocc.push_back(q_);
+      }
+
+      ~DeOp() {
+        // Add s to occ
+        occ.push_back(q_);
+
+        // Remove s from unocc
+        unocc.pop_back();
+      }
+    };
+
+    struct CrOp {
+      // Adjusts the occ and unocc vectors during loops to account for a
+      // creation operator being applied.
+      int p_;
+      std::vector<int> &occ;
+      std::vector<int> &unocc;
+
+      CrOp(int p, std::vector<int> &occ, std::vector<int> &unocc)
+          : p_(p), occ(occ), unocc(unocc) {
+        // Remove p from unocc
+        int p_ind;
+        for (int i = 0; i < unocc.size(); i++) {
+          if (unocc[i] == p_) {
+            p_ind = i;
+            break;
+          }
+        }
+        unocc.erase(unocc.begin() + p_ind);
+
+        // Add p to occ
+        occ.push_back(p_);
+      }
+      ~CrOp() {
+        // Add p back to unocc
+        unocc.push_back(p_);
+        // Remove p from occ
+        occ.pop_back();
+      }
+    };
 
     // One-body excitations
-    for (auto q : unocc) {
-      mel[0] += h_(q / 2, q / 2);
+    for (auto q : occ) {
+      mel[0] +=
+          h_(q / 2, q / 2) + g_(q / 2 * nmo_ + q / 2, q / 2 * nmo_ + q / 2);
 
       // Off diagonal excitations
-      for (auto p : occ) {
-        if (h_(p / 2, q / 2) > 0) {
-          // Skip if i and j don't both act on up (or down) spin
-          if (p % 2 != q % 2) {
-            continue;
-          }
-          connectors.push_back({p, q});
-          newconfs.push_back({1., 0.});
-          mel.push_back(Parity(v, p, q) * h_(p / 2, q / 2));
+      for (auto p : unocc) {
+        // Skip if i and j don't both act on up (or down) spin
+        if (p % 2 != q % 2) {
+          continue;
+        }
+        // Off diagonal for one body component
+        connectors.push_back({p, q});
+        newconfs.push_back({1., 0.});
+        mel.push_back(Parity(v, p, q) * h_(p / 2, q / 2));
+
+        // Partial diagonal for two-body component
+        for (auto r : occ) {
+          mel.back() +=
+              Parity(v, p, q) *
+              g_(r / 2 * nmo_ + r / 2, p / 2 * nmo_ + q / 2); // Troublesome
+          mel.back() +=
+              Parity(v, p, q) * g_(p / 2 * nmo_ + q / 2, r / 2 * nmo_ + r / 2);
         }
       }
     }
@@ -137,45 +210,33 @@ public:
     // two body integrals from PySCF (i.e. eris) are stored as (pq|rs)
     // The two body part of the hamiltonian is
     // (pq|rs) p^\dagger q r^\dagger s
-    for (auto q : unocc) {
-      mel[0] += g_(q / 2 * nmo_ + q, q / 2 * nmo_ + q); // All diag
 
-      for (auto p : occ) {
+    for (auto q : occ) {     // Annihilation
+      for (auto p : unocc) { // Creation
         if (p % 2 != q % 2) {
           continue;
         }
-
-        // Partial diagonal
-        connectors.push_back({p, q});
-        newconfs.push_back({1., 0.});
-        mel.push_back(0.);
-        Complex &partial_diag_mel = mel.back();
-
-        for (auto r : occ) {
+        for (auto r : unocc) { // Creation
+          // Skip the inner loop if r=p because this is already covered in the
+          // all diagonal (p=q=r=s) case
           if (r == p) {
             continue;
           }
-          // Partial diagonal
-          partial_diag_mel +=
-              Parity(v, p, q) * g_(p / 2 * nmo_ + q, r / 2 * nmo_ + r);
-          partial_diag_mel +=
-              Parity(v, p, q) * g_(r / 2 * nmo_ + r, p / 2 * nmo_ + q);
 
           // All indices are different
           // p != q != r != s
-          for (auto s : unocc) {
+          for (auto s : occ) { // Annihilation
+            // skip cases where p^+ q r^+ q (r must be different than s (or q))
             if (s == q) {
               continue;
             }
             if (r % 2 != s % 2) {
               continue;
             }
-            if (g_(p / 2 * nmo_ + q, r / 2 * nmo_ + s) > 0) {
-              connectors.push_back({p, q, r, s});
-              newconfs.push_back({1., 0., 1., 0.});
-              mel.push_back(Parity(v, p, q, r, s) *
-                            g_(p / 2 * nmo_ + q, r / 2 * nmo_ + s));
-            }
+            connectors.push_back({p, q, r, s});
+            newconfs.push_back({1., 0., 1., 0.});
+            mel.push_back(Parity(v, p, q, r, s) *
+                          g_(p / 2 * nmo_ + q / 2, r / 2 * nmo_ + s / 2));
           }
         }
       }
