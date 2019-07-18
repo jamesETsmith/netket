@@ -26,6 +26,7 @@
 #include <limits>
 #include <map>
 #include <vector>
+#include <math.h>
 #include "Hilbert/abstract_hilbert.hpp"
 #include "Utils/array_utils.hpp"
 #include "Utils/kronecker_product.hpp"
@@ -34,6 +35,116 @@
 // clang-format on
 
 namespace netket {
+
+// struct DeOp {
+//   // Adjusts the occ and unocc vectors during loops to account for a
+//   // destruction operator being applied.
+//
+//   int q_;
+//   std::vector<int> &occ;
+//   std::vector<int> &unocc;
+//
+//   // Modifies occ and unocc
+//   DeOp(int q, std::vector<int> &occ, std::vector<int> &unocc)
+//       : q_(q), occ(occ), unocc(unocc) {
+//     // Remove s from occ
+//     int q_ind;
+//     for (int i = 0; i < occ.size(); i++) {
+//       if (occ[i] == q_) {
+//         q_ind = i;
+//         break;
+//       }
+//     }
+//     occ.erase(occ.begin() + q_ind);
+//
+//     // Add s to unocc
+//     unocc.push_back(q_);
+//   }
+//
+//   ~DeOp() {
+//     // Add s to occ
+//     occ.push_back(q_);
+//
+//     // Remove s from unocc
+//     // unocc.pop_back();
+//     int q_ind;
+//     for (int i = 0; i < unocc.size(); i++) {
+//       if (unocc[i] == q_) {
+//         q_ind = i;
+//         break;
+//       }
+//     }
+//     unocc.erase(unocc.begin() + q_ind);
+//   }
+// };
+//
+// struct CrOp {
+//   // Adjusts the occ and unocc vectors during loops to account for a
+//   // creation operator being applied.
+//   int p_;
+//   std::vector<int> &occ;
+//   std::vector<int> &unocc;
+//
+//   CrOp(int p, std::vector<int> &occ, std::vector<int> &unocc)
+//       : p_(p), occ(occ), unocc(unocc) {
+//     // Remove p from unocc
+//     int p_ind;
+//     for (int i = 0; i < unocc.size(); i++) {
+//       if (unocc[i] == p_) {
+//         p_ind = i;
+//         break;
+//       }
+//     }
+//     unocc.erase(unocc.begin() + p_ind);
+//
+//     // Add p to occ
+//     occ.push_back(p_);
+//   }
+//   ~CrOp() {
+//     // Add p back to unocc
+//     unocc.push_back(p_);
+//     // Remove p from occ
+//     // occ.pop_back();
+//     int p_ind;
+//     for (int i = 0; i < occ.size(); i++) {
+//       if (occ[i] == p_) {
+//         p_ind = i;
+//         break;
+//       }
+//     }
+//     occ.erase(occ.begin() + p_ind);
+//   }
+// };
+
+struct OneBodyIntegrals {
+  const Eigen::MatrixXd integrals;
+  const int N;
+
+  OneBodyIntegrals(const Eigen::MatrixXd h) : integrals(h), N(h.cols()) {
+    std::cout << "Initializing OneBodyIntegrals\n";
+  }
+
+  double operator()(int i, int j) const {
+    // Indices given in spin orbital basis and the integrals are referenced in
+    // spatial orbital basis
+    return integrals(i / 2, j / 2);
+  }
+};
+
+struct TwoBodyIntegrals {
+  const Eigen::MatrixXd integrals;
+  const int N;
+
+  TwoBodyIntegrals(const Eigen::MatrixXd g) : integrals(g), N(sqrt(g.cols())) {
+    std::cout << "Initializing TwoBodyIntegrals\n";
+  }
+
+  double operator()(int i, int j, int k, int l) const {
+    // Indices given in spin orbital basis and the integrals are referenced in
+    // spatial orbital basis
+    return integrals(N * i / 2 + j / 2, N * k / 2 + l / 2);
+  }
+};
 
 /**
     Class for local operators acting on a list of sites and for generic local
@@ -64,8 +175,8 @@ private:
   std::size_t nops_;
 
   // QC Stuff
-  const Eigen::MatrixXd h_;
-  const Eigen::MatrixXd g_;
+  const OneBodyIntegrals h_;
+  const TwoBodyIntegrals g_;
   const int norb_;
   const int nmo_;
   const double constant_;
@@ -80,7 +191,7 @@ public:
         nmo_(hilbert->Size()), constant_(e0) {
     // Check that dimension of one and two body integrals match dimension of the
     // hilbert space
-    if (norb_ != h_.rows() * 2 || norb_ * norb_ != g_.rows() * 4) {
+    if (norb_ != h_.N * 2 || norb_ != g_.N * 2) {
       throw InvalidInputError(
           "Matrix size in operator is inconsistent with Hilbert space");
     }
@@ -115,142 +226,134 @@ public:
     GetOpenClosed(v, occ, unocc);
     std::vector<double> conf(v.data(), v.data() + v.size());
 
-    struct DeOp {
-      // Adjusts the occ and unocc vectors during loops to account for a
-      // destruction operator being applied.
+    for (int vi = 0; vi < v.size(); vi++) {
+      std::cout << v(vi) << " ";
+    }
+    std::cout << "\n";
+    double e_HF = Calculate_Hij(occ);
+    std::cout << "HF energy " << e_HF << "\n";
+    exit(0);
 
-      int q_;
-      std::vector<int> &occ;
-      std::vector<int> &unocc;
-
-      // Modifies occ and unocc
-      DeOp(int q, std::vector<int> &occ, std::vector<int> &unocc)
-          : q_(q), occ(occ), unocc(unocc) {
-        // Remove s from occ
-        int q_ind;
-        for (int i = 0; i < occ.size(); i++) {
-          if (occ[i] == q_) {
-            q_ind = i;
-            break;
-          }
-        }
-        occ.erase(occ.begin() + q_ind);
-
-        // Add s to unocc
-        unocc.push_back(q_);
-      }
-
-      ~DeOp() {
-        // Add s to occ
-        occ.push_back(q_);
-
-        // Remove s from unocc
-        unocc.pop_back();
-      }
-    };
-
-    struct CrOp {
-      // Adjusts the occ and unocc vectors during loops to account for a
-      // creation operator being applied.
-      int p_;
-      std::vector<int> &occ;
-      std::vector<int> &unocc;
-
-      CrOp(int p, std::vector<int> &occ, std::vector<int> &unocc)
-          : p_(p), occ(occ), unocc(unocc) {
-        // Remove p from unocc
-        int p_ind;
-        for (int i = 0; i < unocc.size(); i++) {
-          if (unocc[i] == p_) {
-            p_ind = i;
-            break;
-          }
-        }
-        unocc.erase(unocc.begin() + p_ind);
-
-        // Add p to occ
-        occ.push_back(p_);
-      }
-      ~CrOp() {
-        // Add p back to unocc
-        unocc.push_back(p_);
-        // Remove p from occ
-        occ.pop_back();
-      }
-    };
-
-    // One-body excitations
-    for (auto q : occ) {
-      mel[0] +=
-          h_(q / 2, q / 2) + g_(q / 2 * nmo_ + q / 2, q / 2 * nmo_ + q / 2);
-
-      // Off diagonal excitations
-      for (auto p : unocc) {
-        // Skip if i and j don't both act on up (or down) spin
-        if (p % 2 != q % 2) {
-          continue;
-        }
-        // Off diagonal for one body component
-        connectors.push_back({p, q});
-        newconfs.push_back({1., 0.});
-        mel.push_back(Parity(v, p, q) * h_(p / 2, q / 2));
-
-        // Partial diagonal for two-body component
-        for (auto r : occ) {
-          mel.back() +=
-              Parity(v, p, q) *
-              g_(r / 2 * nmo_ + r / 2, p / 2 * nmo_ + q / 2); // Troublesome
-          mel.back() +=
-              Parity(v, p, q) * g_(p / 2 * nmo_ + q / 2, r / 2 * nmo_ + r / 2);
-        }
+    // Generate Configurations
+    for (auto p : unocc) {
+      for (auto q : occ) {
+        // Hij_1Excite
+        continue;
       }
     }
+
+    // One-body excitations
+    // for (auto q : occ) {
+    //   // DeOp dq = DeOp(q, occ, unocc);
+    //   mel[0] +=
+    //       h_(q / 2, q / 2); // + g_(q / 2 * nmo_ + q / 2, q / 2 * nmo_ + q /
+    //       2);
+    //
+    //       for (auto p : unocc) {
+    //         // Skip if i and j don't both act on up (or down) spin
+    //         if (p % 2 != q % 2) {
+    //           continue;
+    //         }
+    //         if (p == q) { // Diagonal has already been handled
+    //           continue;
+    //         }
+    //         // CrOp cp = CrOp(p, occ, unocc);
+    //         // TODO use occ, unocc for parity (maybe not because the
+    //         occupation
+    //         // for
+    //         // the right most operator would be messed up) but think about it
+    //         // Order of the connectors and new values should match the order
+    //         in
+    //         // which the operators are applied
+    //         connectors.push_back({q, p});
+    //         newconfs.push_back({0., 1.});
+    //         mel.push_back(Parity(v, p, q) * h_(p / 2, q / 2));
+    //       }
+    // }
 
     // Two-body excitations
     // two body integrals from PySCF (i.e. eris) are stored as (pq|rs)
     // The two body part of the hamiltonian is
     // (pq|rs) p^\dagger q r^\dagger s
 
-    for (auto q : occ) {     // Annihilation
-      for (auto p : unocc) { // Creation
-        if (p % 2 != q % 2) {
-          continue;
-        }
-        for (auto r : unocc) { // Creation
-          // Skip the inner loop if r=p because this is already covered in the
-          // all diagonal (p=q=r=s) case
-          if (r == p) {
-            continue;
-          }
+    // for (auto s : occ) { // Annihilation
+    //   mel[0] += g_(s / 2 * nmo_ + s / 2, s / 2 * nmo_ + s / 2);
+    //
+    //   DeOp ds = DeOp(s, occ, unocc);
+    //   for (auto r : unocc) { // Creation
+    //     if (s % 2 != r % 2) {
+    //       continue;
+    //     }
+    //     CrOp cr = CrOp(r, occ, unocc);
+    //     for (auto q : occ) { // Creation
+    //       DeOp dq = DeOp(q, occ, unocc);
+    //       for (auto p : unocc) { // Annihilation
+    //         // Diagonal taken care of in one-body double for-loop
+    //         if (p == q && q == r && r == s) {
+    //           continue;
+    //         }
+    //         if (p % 2 != q % 2) {
+    //           continue;
+    //         }
+    //         CrOp cp = CrOp(p, occ, unocc);
+    //
+    //         // Order of the connectors and new values should match the order
+    //         // in which the operators are applied
+    //         connectors.push_back({s, r, q, p});
+    //         newconfs.push_back({0., 1., 0., 1.});
+    //         mel.push_back(Parity(v, p, q, r, s) *
+    //                       g_(p / 2 * nmo_ + q / 2, r / 2 * nmo_ + s / 2));
+    //       }
+    //     }
+    //   }
+    // } // End two body
 
-          // All indices are different
-          // p != q != r != s
-          for (auto s : occ) { // Annihilation
-            // skip cases where p^+ q r^+ q (r must be different than s (or q))
-            if (s == q) {
-              continue;
-            }
-            if (r % 2 != s % 2) {
-              continue;
-            }
-            connectors.push_back({p, q, r, s});
-            newconfs.push_back({1., 0., 1., 0.});
-            mel.push_back(Parity(v, p, q, r, s) *
-                          g_(p / 2 * nmo_ + q / 2, r / 2 * nmo_ + s / 2));
-          }
+    if (occ.size() != 12) { // TODO for debugging only
+      throw "WE LOST SOME ELECTRONS";
+    }
+  } // End FindConn
+
+  // Excitation = 0 i.e. same configurations
+  // Returns the energy of the configuration
+  double Calculate_Hij(std::vector<int> &occ) const {
+    double Hij = 0.0;
+
+    double onebody = 0.0;
+    double twobody = 0.0;
+
+    for (auto i : occ) {
+      Hij += h_(i, i);
+      onebody += h_(i, i);
+
+      for (int ji = i + 1; ji < occ.size(); ji++) {
+        int j = occ[ji];
+        // Direct
+        Hij += g_(i, j, i, j);
+        twobody += g_(i, j, i, j);
+        if (i % 2 == j % 2) {
+          // Exchange
+          Hij -= g_(i, j, j, i);
+          twobody -= g_(i, j, j, i);
         }
       }
-    } // End two body
-  }   // End FindConn
+    }
+
+    std::cout << "OneBody " << onebody << "\n";
+    std::cout << "TwoBody " << twobody << "\n";
+    return Hij;
+  }
 
   void GetOpenClosed(VectorConstRefType v, std::vector<int> &occ,
                      std::vector<int> &unocc) const {
     // Find occ and unocc spin orbitals
     for (int i = 0; i < norb_; i++) {
       if (v(i) == 0) { // unoccupied
-        occ.push_back(i);
-      } else { // occupied
         unocc.push_back(i);
+      } else if (v(i) == 1) { // occupied
+        occ.push_back(i);
+      } else {
+        std::cout << "Occupation number not supported for QCHamiltonian\n";
+        throw "ERROR";
       }
     }
   }
