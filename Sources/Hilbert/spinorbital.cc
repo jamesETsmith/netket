@@ -63,7 +63,7 @@ void SpinOrbital::UpdateConf(Eigen::Ref<Eigen::VectorXd> v,
     v(sf) = newconf[i];
     i++;
   }
-}
+} // namespace netket
 
 const AbstractGraph &SpinOrbital::GetGraph() const noexcept { return graph_; }
 }; // namespace netket

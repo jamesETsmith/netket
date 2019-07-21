@@ -35,92 +35,14 @@
 // clang-format on
 
 namespace netket {
-
-// struct DeOp {
-//   // Adjusts the occ and unocc vectors during loops to account for a
-//   // destruction operator being applied.
-//
-//   int q_;
-//   std::vector<int> &occ;
-//   std::vector<int> &unocc;
-//
-//   // Modifies occ and unocc
-//   DeOp(int q, std::vector<int> &occ, std::vector<int> &unocc)
-//       : q_(q), occ(occ), unocc(unocc) {
-//     // Remove s from occ
-//     int q_ind;
-//     for (int i = 0; i < occ.size(); i++) {
-//       if (occ[i] == q_) {
-//         q_ind = i;
-//         break;
-//       }
-//     }
-//     occ.erase(occ.begin() + q_ind);
-//
-//     // Add s to unocc
-//     unocc.push_back(q_);
-//   }
-//
-//   ~DeOp() {
-//     // Add s to occ
-//     occ.push_back(q_);
-//
-//     // Remove s from unocc
-//     // unocc.pop_back();
-//     int q_ind;
-//     for (int i = 0; i < unocc.size(); i++) {
-//       if (unocc[i] == q_) {
-//         q_ind = i;
-//         break;
-//       }
-//     }
-//     unocc.erase(unocc.begin() + q_ind);
-//   }
-// };
-//
-// struct CrOp {
-//   // Adjusts the occ and unocc vectors during loops to account for a
-//   // creation operator being applied.
-//   int p_;
-//   std::vector<int> &occ;
-//   std::vector<int> &unocc;
-//
-//   CrOp(int p, std::vector<int> &occ, std::vector<int> &unocc)
-//       : p_(p), occ(occ), unocc(unocc) {
-//     // Remove p from unocc
-//     int p_ind;
-//     for (int i = 0; i < unocc.size(); i++) {
-//       if (unocc[i] == p_) {
-//         p_ind = i;
-//         break;
-//       }
-//     }
-//     unocc.erase(unocc.begin() + p_ind);
-//
-//     // Add p to occ
-//     occ.push_back(p_);
-//   }
-//   ~CrOp() {
-//     // Add p back to unocc
-//     unocc.push_back(p_);
-//     // Remove p from occ
-//     // occ.pop_back();
-//     int p_ind;
-//     for (int i = 0; i < occ.size(); i++) {
-//       if (occ[i] == p_) {
-//         p_ind = i;
-//         break;
-//       }
-//     }
-//     occ.erase(occ.begin() + p_ind);
-//   }
-// };
+using RowMatrixXd =
+    Eigen::Matrix<double, Eigen::Dynamic, Eigen::Dynamic, Eigen::RowMajor>;
 
 struct OneBodyIntegrals {
-  const Eigen::MatrixXd integrals;
+  const RowMatrixXd integrals;
   const int N;
 
-  OneBodyIntegrals(const Eigen::MatrixXd h) : integrals(h), N(h.cols()) {
+  OneBodyIntegrals(const RowMatrixXd h) : integrals(h), N(h.cols()) {
     std::cout << "Initializing OneBodyIntegrals\n";
   }
 
@@ -132,17 +54,17 @@ struct OneBodyIntegrals {
 };
 
 struct TwoBodyIntegrals {
-  const Eigen::MatrixXd integrals;
+  const RowMatrixXd integrals;
   const int N;
 
-  TwoBodyIntegrals(const Eigen::MatrixXd g) : integrals(g), N(sqrt(g.cols())) {
+  TwoBodyIntegrals(const RowMatrixXd g) : integrals(g), N(sqrt(g.cols())) {
     std::cout << "Initializing TwoBodyIntegrals\n";
   }
 
   double operator()(int i, int j, int k, int l) const {
     // Indices given in spin orbital basis and the integrals are referenced in
     // spatial orbital basis
-    return integrals(N * i / 2 + j / 2, N * k / 2 + l / 2);
+    return integrals(N * (i / 2) + (j / 2), N * (k / 2) + (l / 2));
   }
 };
 
@@ -185,8 +107,7 @@ private:
 
 public:
   explicit QCHamiltonian(std::shared_ptr<const AbstractHilbert> hilbert,
-                         const Eigen::MatrixXd &h, const Eigen::MatrixXd &g,
-                         double e0)
+                         const RowMatrixXd &h, const RowMatrixXd &g, double e0)
       : AbstractOperator(hilbert), h_(h), g_(g), norb_(hilbert->Size()),
         nmo_(hilbert->Size()), constant_(e0) {
     // Check that dimension of one and two body integrals match dimension of the
@@ -224,14 +145,32 @@ public:
     std::vector<int> occ;   // Keep track of occ spin orbitals
     std::vector<int> unocc; // Keep trach of unocc spin orbitals
     GetOpenClosed(v, occ, unocc);
-    std::vector<double> conf(v.data(), v.data() + v.size());
+    // std::vector<double> conf(v.data(), v.data() + v.size());
 
     for (int vi = 0; vi < v.size(); vi++) {
       std::cout << v(vi) << " ";
     }
     std::cout << "\n";
+
+    // No exc. test
     double e_HF = Calculate_Hij(occ);
     std::cout << "HF energy " << e_HF << "\n";
+
+    // 1 exc. test
+    std::cout << "unocc ";
+    for (auto i : unocc) {
+      std::cout << i << " ";
+    }
+    std::cout << "\n";
+    for (auto i : unocc) {
+      double e_1ex = Calculate_Hij(occ, i, 11);
+      if (e_1ex > 1e-12) {
+        std::cout << "1 Excitation test " << e_1ex << "\n";
+      }
+    }
+
+    // 2 exc. test
+    double e_2ex = Calculate_Hij(occ, 4, 6, 5, 7);
     exit(0);
 
     // Generate Configurations
@@ -242,104 +181,94 @@ public:
       }
     }
 
-    // One-body excitations
-    // for (auto q : occ) {
-    //   // DeOp dq = DeOp(q, occ, unocc);
-    //   mel[0] +=
-    //       h_(q / 2, q / 2); // + g_(q / 2 * nmo_ + q / 2, q / 2 * nmo_ + q /
-    //       2);
-    //
-    //       for (auto p : unocc) {
-    //         // Skip if i and j don't both act on up (or down) spin
-    //         if (p % 2 != q % 2) {
-    //           continue;
-    //         }
-    //         if (p == q) { // Diagonal has already been handled
-    //           continue;
-    //         }
-    //         // CrOp cp = CrOp(p, occ, unocc);
-    //         // TODO use occ, unocc for parity (maybe not because the
-    //         occupation
-    //         // for
-    //         // the right most operator would be messed up) but think about it
-    //         // Order of the connectors and new values should match the order
-    //         in
-    //         // which the operators are applied
-    //         connectors.push_back({q, p});
-    //         newconfs.push_back({0., 1.});
-    //         mel.push_back(Parity(v, p, q) * h_(p / 2, q / 2));
-    //       }
-    // }
-
-    // Two-body excitations
-    // two body integrals from PySCF (i.e. eris) are stored as (pq|rs)
-    // The two body part of the hamiltonian is
-    // (pq|rs) p^\dagger q r^\dagger s
-
-    // for (auto s : occ) { // Annihilation
-    //   mel[0] += g_(s / 2 * nmo_ + s / 2, s / 2 * nmo_ + s / 2);
-    //
-    //   DeOp ds = DeOp(s, occ, unocc);
-    //   for (auto r : unocc) { // Creation
-    //     if (s % 2 != r % 2) {
-    //       continue;
-    //     }
-    //     CrOp cr = CrOp(r, occ, unocc);
-    //     for (auto q : occ) { // Creation
-    //       DeOp dq = DeOp(q, occ, unocc);
-    //       for (auto p : unocc) { // Annihilation
-    //         // Diagonal taken care of in one-body double for-loop
-    //         if (p == q && q == r && r == s) {
-    //           continue;
-    //         }
-    //         if (p % 2 != q % 2) {
-    //           continue;
-    //         }
-    //         CrOp cp = CrOp(p, occ, unocc);
-    //
-    //         // Order of the connectors and new values should match the order
-    //         // in which the operators are applied
-    //         connectors.push_back({s, r, q, p});
-    //         newconfs.push_back({0., 1., 0., 1.});
-    //         mel.push_back(Parity(v, p, q, r, s) *
-    //                       g_(p / 2 * nmo_ + q / 2, r / 2 * nmo_ + s / 2));
-    //       }
-    //     }
-    //   }
-    // } // End two body
-
     if (occ.size() != 12) { // TODO for debugging only
       throw "WE LOST SOME ELECTRONS";
     }
   } // End FindConn
 
-  // Excitation = 0 i.e. same configurations
-  // Returns the energy of the configuration
+  /**
+   * @brief Returns the energy of the configuration specified by occ. This is
+   * Case 1 in Tables 2.3/2.4 in Szabo and Ostlund (1989).
+   *
+   * @param occ The vector of occupied spin orbitals.
+   * @return double Energy of the configuration.
+   */
   double Calculate_Hij(std::vector<int> &occ) const {
     double Hij = 0.0;
 
-    double onebody = 0.0;
-    double twobody = 0.0;
-
     for (auto i : occ) {
       Hij += h_(i, i);
-      onebody += h_(i, i);
 
       for (int ji = i + 1; ji < occ.size(); ji++) {
-        int j = occ[ji];
+        int j = occ.at(ji);
         // Direct
-        Hij += g_(i, j, i, j);
-        twobody += g_(i, j, i, j);
+        Hij += g_(i, i, j, j);
         if (i % 2 == j % 2) {
           // Exchange
           Hij -= g_(i, j, j, i);
-          twobody -= g_(i, j, j, i);
         }
       }
     }
 
-    std::cout << "OneBody " << onebody << "\n";
-    std::cout << "TwoBody " << twobody << "\n";
+    return Hij;
+  }
+
+  /**
+   * @brief Returns the Hamiltonian matrix element between two configurations
+   * that differ by a single excitation operator (one creation and one
+   * excitation operator). This is Case 2 in Tables 2.3/2.4 in Szabo and Ostlund
+   * (1989).
+   *
+   * @param occ The vector of occupied spin orbitals.
+   * @param p The spin orbital index of the creation operator.
+   * @param q The spin orbital index of the annihilation operator.
+   * @return double \f$\langle I|\hat{H}| J\rangle\f$
+   */
+  double Calculate_Hij(std::vector<int> &occ, int p, int q) const {
+    double Hij = h_(p, q);
+    double par = 1.0;
+
+    for (auto i : occ) {
+      if (i > std::min(p, q) && i < std::max(p, q)) {
+        par *= -1.;
+      }
+      Hij += g_(p, q, i, i);
+      if (q % 2 == i % 2) {
+        Hij -= g_(p, i, i, q);
+      }
+    }
+
+    return Hij * par;
+  }
+
+  /**
+   * @brief Returns the Hamiltonian matrix element between two configurations
+   * that differ by a double excitation operator (one creation and one
+   * excitation operator). This is Case 3 in Tables 2.3/2.4 in Szabo and Ostlund
+   * (1989).
+   *
+   * @param occ The vector of occupied spin orbitals.
+   * @param v State vector for the ket.
+   * @param p Orbital index for creation operator
+   * @param q Orbital index for destruction operator
+   * @param r Orbital index for creation operator
+   * @param s Orbital index for destruction operator
+   * @return double \f$\langle I|\hat{H}| J\rangle\f$
+   */
+  double Calculate_Hij(std::vector<int> &occ, int p, int q, int r,
+                       int s) const {
+    double Hij = 0;
+    // double par = Parity(v, p, q, r, s);
+
+    Hij += g_(p, q, r, s);
+
+    if (q % 2 == r % 2) {
+      Hij -= g_(p, s, r, q);
+    }
+
+    // Hij *= par;
+    std::cout << "Double excitation\n";
+    std::cout << p << " " << q << " " << r << " " << s << "\n";
     return Hij;
   }
 

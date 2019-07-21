@@ -33,8 +33,12 @@ namespace netket {
 void AddQCHamiltonian(py::module &subm) {
   py::class_<QCHamiltonian, AbstractOperator>(
       subm, "QCHamiltonian", R"EOF(A custom local operator.)EOF")
-      .def(py::init<std::shared_ptr<const AbstractHilbert>, Eigen::MatrixXd,
-                    Eigen::MatrixXd, double>(),
+      .def(py::init<std::shared_ptr<const AbstractHilbert>,
+                    Eigen::Matrix<double, Eigen::Dynamic, Eigen::Dynamic,
+                                  Eigen::RowMajor>,
+                    Eigen::Matrix<double, Eigen::Dynamic, Eigen::Dynamic,
+                                  Eigen::RowMajor>,
+                    double>(),
            py::keep_alive<1, 2>(), py::arg("hilbert"), py::arg("h"),
            py::arg("g"), py::arg("e0"),
            R"EOF(
