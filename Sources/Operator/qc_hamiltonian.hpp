@@ -27,6 +27,7 @@
 #include <map>
 #include <vector>
 #include <math.h>
+#include <stdio.h>
 #include "Hilbert/abstract_hilbert.hpp"
 #include "Utils/array_utils.hpp"
 #include "Utils/kronecker_product.hpp"
@@ -101,15 +102,17 @@ private:
   const TwoBodyIntegrals g_;
   const int norb_;
   const int nmo_;
+  const int nelec_;
   const double constant_;
 
-  // static constexpr double mel_cutoff_ = 1.0e-6;
+  static constexpr double mel_cutoff_ = 1.0e-8;
 
 public:
   explicit QCHamiltonian(std::shared_ptr<const AbstractHilbert> hilbert,
-                         const RowMatrixXd &h, const RowMatrixXd &g, double e0)
+                         const RowMatrixXd &h, const RowMatrixXd &g, double e0,
+                         int nelec)
       : AbstractOperator(hilbert), h_(h), g_(g), norb_(hilbert->Size()),
-        nmo_(hilbert->Size()), constant_(e0) {
+        nmo_(hilbert->Size()), nelec_(nelec), constant_(e0) {
     // Check that dimension of one and two body integrals match dimension of the
     // hilbert space
     if (norb_ != h_.N * 2 || norb_ != g_.N * 2) {
@@ -145,46 +148,119 @@ public:
     std::vector<int> occ;   // Keep track of occ spin orbitals
     std::vector<int> unocc; // Keep trach of unocc spin orbitals
     GetOpenClosed(v, occ, unocc);
-    // std::vector<double> conf(v.data(), v.data() + v.size());
 
-    for (int vi = 0; vi < v.size(); vi++) {
-      std::cout << v(vi) << " ";
-    }
-    std::cout << "\n";
+    // Excitation = 0 (no new configurations generated)
+    mel[0] += Calculate_Hij(occ);
 
-    // No exc. test
-    double e_HF = Calculate_Hij(occ);
-    std::cout << "HF energy " << e_HF << "\n";
-
-    // 1 exc. test
-    std::cout << "unocc ";
-    for (auto i : unocc) {
-      std::cout << i << " ";
-    }
-    std::cout << "\n";
-    for (auto i : unocc) {
-      double e_1ex = Calculate_Hij(occ, i, 11);
-      if (e_1ex > 1e-12) {
-        std::cout << "1 Excitation test " << e_1ex << "\n";
-      }
-    }
-
-    // 2 exc. test
-    double e_2ex = Calculate_Hij(occ, 4, 6, 5, 7);
-    exit(0);
-
-    // Generate Configurations
+    // Excitation = 1
     for (auto p : unocc) {
       for (auto q : occ) {
-        // Hij_1Excite
-        continue;
+        if (p % 2 != q % 2) {
+          continue;
+        }
+        double Hij = Calculate_Hij(occ, p, q);
+        if (std::abs(Hij) > mel_cutoff_) {
+          continue;
+        }
+        connectors.push_back({q, p});
+        newconfs.push_back({0., 1.});
+        mel.push_back(Hij);
       }
     }
 
-    if (occ.size() != 12) { // TODO for debugging only
+    std::vector<std::vector<int>> dets;
+    GetCIDDets(occ, unocc, dets);
+    for (auto det : dets) {
+      int p = det.at(3);
+      int q = det.at(2);
+      int r = det.at(1);
+      int s = det.at(0);
+
+      double Hij = Calculate_Hij(occ, v, p, q, r, s);
+      if (std::abs(Hij) > mel_cutoff_) {
+        continue;
+      }
+      connectors.push_back({s, r, q, p});
+      newconfs.push_back({0., 1., 0., 1.});
+      mel.push_back(Calculate_Hij(occ, v, p, q, r, s));
+    }
+
+    if (occ.size() != nelec_) { // TODO for debugging only
       throw "WE LOST SOME ELECTRONS";
     }
   } // End FindConn
+
+  void GetCIDDets(std::vector<int> &occ, std::vector<int> &unocc,
+                  std::vector<std::vector<int>> &dets) const {
+    std::vector<int> occAlpha;
+    std::vector<int> occBeta;
+    std::vector<int> unoccAlpha;
+    std::vector<int> unoccBeta;
+
+    for (auto o : occ) {
+      if (o % 2 == 0) {
+        occAlpha.push_back(o);
+      } else if (o % 2 == 1) {
+        occBeta.push_back(o);
+      }
+    }
+
+    for (auto u : unocc) {
+      if (u % 2 == 0) {
+        unoccAlpha.push_back(u);
+      } else if (u % 2 == 1) {
+        unoccBeta.push_back(u);
+      }
+    }
+
+    // Three options here:
+    // 1) One alpha excitation and one beta
+    // 2) Two alpha excitations
+    // 3) Two beta excitations
+
+    // 1)
+    for (auto oa : occAlpha) {
+      for (auto ua : unoccAlpha) {
+        for (auto ob : occBeta) {
+          for (auto ub : unoccBeta) {
+            dets.push_back({ob, ub, oa, ua});
+          }
+        }
+      }
+    }
+
+    // 2)
+    for (int i1 = 0; i1 < occAlpha.size(); i1++) {
+      for (int i2 = i1 + 1; i2 < occAlpha.size(); i2++) {
+        for (int j1 = 0; j1 < unoccAlpha.size(); j1++) {
+          for (int j2 = j1 + 1; j2 < unoccAlpha.size(); j2++) {
+            int p = occAlpha.at(i1);
+            int q = occAlpha.at(i2);
+            int r = unoccAlpha.at(j1);
+            int s = unoccAlpha.at(j2);
+
+            dets.push_back({s, r, q, p});
+          }
+        }
+      }
+    }
+
+    // 3)
+    for (int i1 = 0; i1 < occBeta.size(); i1++) {
+      for (int i2 = i1 + 1; i2 < occBeta.size(); i2++) {
+        for (int j1 = 0; j1 < unoccBeta.size(); j1++) {
+          for (int j2 = j1 + 1; j2 < unoccBeta.size(); j2++) {
+            int p = occBeta.at(i1);
+            int q = occBeta.at(i2);
+            int r = unoccBeta.at(j1);
+            int s = unoccBeta.at(j2);
+
+            dets.push_back({s, r, q, p});
+          }
+        }
+      }
+    }
+  }
 
   /**
    * @brief Returns the energy of the configuration specified by occ. This is
@@ -196,19 +272,32 @@ public:
   double Calculate_Hij(std::vector<int> &occ) const {
     double Hij = 0.0;
 
-    for (auto i : occ) {
-      Hij += h_(i, i);
+    // std::cout << "Occupied orbitals ";
+    // for (auto o : occ) {
+    //   std::cout << o << " ";
+    // }
+    // std::cout << "\n";
 
-      for (int ji = i + 1; ji < occ.size(); ji++) {
+    for (int ii = 0; ii < occ.size(); ii++) {
+      int i = occ.at(ii);
+      Hij += h_(i, i);
+      // printf("h_(%i %i) = %f\n", i, i, h_(i, i));
+
+      for (int ji = ii + 1; ji < occ.size(); ji++) {
         int j = occ.at(ji);
         // Direct
         Hij += g_(i, i, j, j);
+        // printf("g_(%i %i %i %i) = %f\n", i, i, j, j, g_(i, i, j, j));
         if (i % 2 == j % 2) {
           // Exchange
           Hij -= g_(i, j, j, i);
+          // printf("g_(%i %i %i %i) = %f\n", i, j, j, i, g_(i, j, j, i));
         }
       }
     }
+
+    // std::cout << Hij << "\n";
+    // printf("Hij = %f\n", Hij);
 
     return Hij;
   }
@@ -255,10 +344,10 @@ public:
    * @param s Orbital index for destruction operator
    * @return double \f$\langle I|\hat{H}| J\rangle\f$
    */
-  double Calculate_Hij(std::vector<int> &occ, int p, int q, int r,
-                       int s) const {
+  double Calculate_Hij(std::vector<int> &occ, VectorConstRefType v, int p,
+                       int q, int r, int s) const {
     double Hij = 0;
-    // double par = Parity(v, p, q, r, s);
+    double par = Parity(v, p, q, r, s);
 
     Hij += g_(p, q, r, s);
 
@@ -266,9 +355,7 @@ public:
       Hij -= g_(p, s, r, q);
     }
 
-    // Hij *= par;
-    std::cout << "Double excitation\n";
-    std::cout << p << " " << q << " " << r << " " << s << "\n";
+    Hij *= par;
     return Hij;
   }
 
