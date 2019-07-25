@@ -150,6 +150,7 @@ public:
     GetOpenClosed(v, occ, unocc);
 
     // Excitation = 0 (no new configurations generated)
+    // printf("Diag element = %f\n", Calculate_Hij(occ));
     mel[0] += Calculate_Hij(occ);
 
     // Excitation = 1
@@ -159,7 +160,7 @@ public:
           continue;
         }
         double Hij = Calculate_Hij(occ, p, q);
-        if (std::abs(Hij) > mel_cutoff_) {
+        if (std::abs(Hij) < mel_cutoff_) {
           continue;
         }
         connectors.push_back({q, p});
@@ -177,7 +178,7 @@ public:
       int s = det.at(0);
 
       double Hij = Calculate_Hij(occ, v, p, q, r, s);
-      if (std::abs(Hij) > mel_cutoff_) {
+      if (std::abs(Hij) < mel_cutoff_) {
         continue;
       }
       connectors.push_back({s, r, q, p});
@@ -186,8 +187,14 @@ public:
     }
 
     if (occ.size() != nelec_) { // TODO for debugging only
-      throw "WE LOST SOME ELECTRONS";
+      throw std::runtime_error{"WE LOST SOME ELECTRONS"};
     }
+    // printf("//////////////////////////\n");
+    // printf("Occ %d %d\n", occ[0], occ[1]);
+    // printf("Size of mel = %d\n", mel.size());
+    // printf("mel[0] = %e\n", mel[0]);
+    // printf("mel[1] = %e\n", mel[1]);
+    // printf("mel[2] = %e\n", mel[2]);
   } // End FindConn
 
   void GetCIDDets(std::vector<int> &occ, std::vector<int> &unocc,
@@ -368,8 +375,8 @@ public:
       } else if (v(i) == 1) { // occupied
         occ.push_back(i);
       } else {
-        std::cout << "Occupation number not supported for QCHamiltonian\n";
-        throw "ERROR";
+        throw std::runtime_error{
+            "Occupation number not supported for QCHamiltonian\n"};
       }
     }
   }
