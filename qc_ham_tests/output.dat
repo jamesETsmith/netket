@@ -1,0 +1,303 @@
+
+     ____  _
+    |  _ \(_) ___ ___
+    | | | | |/ __/ _ \
+    | |_| | | (_|  __/
+    |____/|_|\___\___|   v1.0
+
+
+**************************************************************
+Dice  Copyright (C) 2017  Sandeep Sharma
+
+This program is distributed in the hope that it will be useful,
+but WITHOUT ANY WARRANTY; without even the implied warranty of
+MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.
+See the GNU General Public License for more details.
+
+Author:       Sandeep Sharma
+Contributors: James E Smith, Adam A Holmes, Bastien Mussard
+For detailed documentation on Dice please visit
+https://sanshar.github.io/Dice/
+and our group page for up to date information on other projects
+http://www.colorado.edu/lab/sharmagroup/
+**************************************************************
+
+User:             jsmith
+Date:             Fri Jul 26 17:41:07 2019
+PID:              1647393
+
+Path:             /mnt/home/jsmith/apps/Dice/Dice
+Commit:           f2cc8dd63c6491eb0dea2277785b2d1ef775a7ba
+Branch:           master
+Compilation Date: Jun  5 2019 10:16:21
+
+
+**************************************************************
+INPUT FILE
+**************************************************************
+#system
+nocc 4
+0 2 1 3 
+nroots 1
+#variational
+schedule
+0	0
+end
+davidsonTol 5e-05
+dE 1e-08
+maxiter 6
+#pt
+nPTiter 0
+epsilon2 1e-07
+epsilon2Large 1000
+targetError 0.0001
+sampleN 200
+#misc
+noio
+prefix /scratch
+DoRDM
+
+
+
+
+**************************************************************
+SELECTING REFERENCE DETERMINANT(S)
+**************************************************************
+2 2 0 0  Given HF Energy:  | 0 1 2 3 >	Energy = -4.391647
+     -2.0985459370
+2 2 0 0  Est. Det. Energy: | 0 1 2 3 >	Energy = -4.391647
+     -2.0985459370
+
+
+**************************************************************
+VARIATIONAL STEP  
+**************************************************************
+Occ 0 1 2 3 p=4 q=0	Hij = -0.000000
+Occ 0 1 2 3 p=6 q=0	Hij = -0.000000
+Occ 0 1 2 3 p=5 q=1	Hij = 0.000000
+Occ 0 1 2 3 p=7 q=1	Hij = 0.000000
+Occ 0 1 2 3 p=4 q=2	Hij = -0.000000
+Occ 0 1 2 3 p=6 q=2	Hij = -0.000000
+Occ 0 1 2 3 p=5 q=3	Hij = 0.000000
+Occ 0 1 2 3 p=7 q=3	Hij = 0.000000
+| 0 1 2 3 >	Energy = -4.391647
+| 0 1 2 3 >	Energy = -4.391647
+| 0 1 2 3 >	Energy = -4.391647
+| 2 3 4 5 >	Energy = -3.155385
+| 0 1 2 3 >	Energy = -4.391647
+| 2 7 >	Energy = -1.993032
+| 0 1 2 3 >	Energy = -4.391647
+| 3 6 >	Energy = -1.993032
+| 0 1 2 3 >	Energy = -4.391647
+| >	Energy = 0.000000
+| 0 1 2 3 >	Energy = -4.391647
+| >	Energy = 0.000000
+| 0 1 2 3 >	Energy = -4.391647
+| 0 3 >	Energy = -2.949829
+| 0 1 2 3 >	Energy = -4.391647
+| 3 4 >	Energy = -2.348690
+| 0 1 2 3 >	Energy = -4.391647
+| 0 7 >	Energy = -2.218481
+| 0 1 2 3 >	Energy = -4.391647
+| >	Energy = 0.000000
+| 0 1 2 3 >	Energy = -4.391647
+| 1 2 >	Energy = -2.949829
+| 0 1 2 3 >	Energy = -4.391647
+| 2 5 >	Energy = -2.348690
+| 0 1 2 3 >	Energy = -4.391647
+| 1 6 >	Energy = -2.218481
+| 0 1 2 3 >	Energy = -4.391647
+| >	Energy = 0.000000
+| 0 1 2 3 >	Energy = -4.391647
+| >	Energy = 0.000000
+| 0 1 2 3 >	Energy = -4.391647
+| 0 1 >	Energy = -3.172933
+| 0 1 2 3 >	Energy = -4.391647
+| 0 5 >	Energy = -2.634916
+| 0 1 2 3 >	Energy = -4.391647
+| 1 4 >	Energy = -2.634916
+| 0 1 2 3 >	Energy = -4.391647
+| 0 1 2 3 >	Energy = -4.391647
+Iter Root       Eps1   #Var. Det.               Energy   #Davidson     Time(s)
+Occ 0 1 2 3 p=4 q=0	Hij = -0.000000
+Occ 0 1 2 3 p=5 q=1	Hij = 0.000000
+Occ 0 1 2 3 p=6 q=2	Hij = -0.000000
+Occ 0 1 2 3 p=7 q=3	Hij = 0.000000
+| 1 2 3 4 >	Energy = -3.809867
+| 0 2 3 5 >	Energy = -3.809867
+| 0 1 4 5 >	Energy = -3.628818
+| 2 3 4 5 >	Energy = -3.155385
+| 0 1 3 6 >	Energy = -3.502648
+| 1 3 4 6 >	Energy = -3.060928
+| 1 2 5 6 >	Energy = -2.953559
+| 0 3 5 6 >	Energy = -2.975434
+| 0 1 2 7 >	Energy = -3.502648
+| 1 2 4 7 >	Energy = -2.975434
+| 0 3 4 7 >	Energy = -2.953559
+| 0 2 5 7 >	Energy = -3.060928
+| 0 1 6 7 >	Energy = -2.506867
+| 2 3 6 7 >	Energy = -2.232792
+| 0 1 2 3 >	Energy = -4.391647
+| 1 2 3 4 >	Energy = -3.809867
+| 0 2 3 5 >	Energy = -3.809867
+| 0 1 4 5 >	Energy = -3.628818
+| 2 3 4 5 >	Energy = -3.155385
+| 0 1 3 6 >	Energy = -3.502648
+| 1 3 4 6 >	Energy = -3.060928
+| 1 2 5 6 >	Energy = -2.953559
+| 0 3 5 6 >	Energy = -2.975434
+| 0 1 2 7 >	Energy = -3.502648
+| 1 2 4 7 >	Energy = -2.975434
+| 0 3 4 7 >	Energy = -2.953559
+| 0 2 5 7 >	Energy = -3.060928
+| 0 1 6 7 >	Energy = -2.506867
+| 2 3 6 7 >	Energy = -2.232792
+   0    0    0.00e+00          15        -2.1650318412          7        0.00
+Occ 0 1 2 3 p=4 q=0	Hij = -0.000000
+Occ 0 1 2 3 p=5 q=1	Hij = 0.000000
+Occ 0 1 2 3 p=6 q=2	Hij = -0.000000
+Occ 0 1 2 3 p=7 q=3	Hij = 0.000000
+Occ 1 2 3 4 p=5 q=1	Hij = -0.074703
+Occ 1 2 3 4 p=6 q=2	Hij = 0.061018
+Occ 1 2 3 4 p=7 q=3	Hij = 0.081433
+Occ 1 2 3 4 p=0 q=4	Hij = -0.000000
+Occ 0 2 3 5 p=4 q=0	Hij = 0.074703
+Occ 0 2 3 5 p=6 q=2	Hij = -0.081433
+Occ 0 2 3 5 p=7 q=3	Hij = -0.061018
+Occ 0 2 3 5 p=1 q=5	Hij = 0.000000
+Occ 2 3 4 5 p=6 q=2	Hij = 0.020416
+Occ 2 3 4 5 p=7 q=3	Hij = -0.020416
+Occ 2 3 4 5 p=0 q=4	Hij = 0.074703
+Occ 2 3 4 5 p=1 q=5	Hij = -0.074703
+Occ 0 1 3 6 p=4 q=0	Hij = 0.043258
+Occ 0 1 3 6 p=5 q=1	Hij = 0.095712
+Occ 0 1 3 6 p=7 q=3	Hij = -0.089482
+Occ 0 1 3 6 p=2 q=6	Hij = -0.000000
+Occ 1 3 4 6 p=5 q=1	Hij = -0.021010
+Occ 1 3 4 6 p=7 q=3	Hij = 0.008049
+Occ 1 3 4 6 p=0 q=4	Hij = 0.043258
+Occ 1 3 4 6 p=2 q=6	Hij = 0.061018
+Occ 0 3 5 6 p=4 q=0	Hij = -0.117961
+Occ 0 3 5 6 p=7 q=3	Hij = 0.150499
+Occ 0 3 5 6 p=1 q=5	Hij = 0.095712
+Occ 0 3 5 6 p=2 q=6	Hij = -0.081433
+Occ 0 1 2 7 p=4 q=0	Hij = -0.095712
+Occ 0 1 2 7 p=5 q=1	Hij = -0.043258
+Occ 0 1 2 7 p=6 q=2	Hij = 0.089482
+Occ 0 1 2 7 p=3 q=7	Hij = 0.000000
+Occ 1 2 4 7 p=5 q=1	Hij = 0.117961
+Occ 1 2 4 7 p=6 q=2	Hij = -0.150499
+Occ 1 2 4 7 p=0 q=4	Hij = -0.095712
+Occ 1 2 4 7 p=3 q=7	Hij = 0.081433
+Occ 0 2 5 7 p=4 q=0	Hij = 0.021010
+Occ 0 2 5 7 p=6 q=2	Hij = -0.008049
+Occ 0 2 5 7 p=1 q=5	Hij = -0.043258
+Occ 0 2 5 7 p=3 q=7	Hij = -0.061018
+Occ 0 1 6 7 p=4 q=0	Hij = 0.052454
+Occ 0 1 6 7 p=5 q=1	Hij = -0.052454
+Occ 0 1 6 7 p=2 q=6	Hij = 0.089482
+Occ 0 1 6 7 p=3 q=7	Hij = -0.089482
+| 3 4 5 6 >	Energy = -2.461012
+| 2 4 5 7 >	Energy = -2.461012
+| 1 4 6 7 >	Energy = -2.119713
+| 0 5 6 7 >	Energy = -2.119713
+| 4 5 6 7 >	Energy = -1.659857
+| 3 4 5 6 >	Energy = -2.461012
+| 2 4 5 7 >	Energy = -2.461012
+| 1 4 6 7 >	Energy = -2.119713
+| 0 5 6 7 >	Energy = -2.119713
+| 4 5 6 7 >	Energy = -1.659857
+   1    0    0.00e+00          20        -2.1663874477          6        0.01
+Occ 0 1 2 3 p=4 q=0	Hij = -0.000000
+Occ 0 1 2 3 p=5 q=1	Hij = 0.000000
+Occ 0 1 2 3 p=6 q=2	Hij = -0.000000
+Occ 0 1 2 3 p=7 q=3	Hij = 0.000000
+Occ 1 2 3 4 p=5 q=1	Hij = -0.074703
+Occ 1 2 3 4 p=6 q=2	Hij = 0.061018
+Occ 1 2 3 4 p=7 q=3	Hij = 0.081433
+Occ 1 2 3 4 p=0 q=4	Hij = -0.000000
+Occ 0 2 3 5 p=4 q=0	Hij = 0.074703
+Occ 0 2 3 5 p=6 q=2	Hij = -0.081433
+Occ 0 2 3 5 p=7 q=3	Hij = -0.061018
+Occ 0 2 3 5 p=1 q=5	Hij = 0.000000
+Occ 2 3 4 5 p=6 q=2	Hij = 0.020416
+Occ 2 3 4 5 p=7 q=3	Hij = -0.020416
+Occ 2 3 4 5 p=0 q=4	Hij = 0.074703
+Occ 2 3 4 5 p=1 q=5	Hij = -0.074703
+Occ 0 1 3 6 p=4 q=0	Hij = 0.043258
+Occ 0 1 3 6 p=5 q=1	Hij = 0.095712
+Occ 0 1 3 6 p=7 q=3	Hij = -0.089482
+Occ 0 1 3 6 p=2 q=6	Hij = -0.000000
+Occ 1 3 4 6 p=5 q=1	Hij = -0.021010
+Occ 1 3 4 6 p=7 q=3	Hij = 0.008049
+Occ 1 3 4 6 p=0 q=4	Hij = 0.043258
+Occ 1 3 4 6 p=2 q=6	Hij = 0.061018
+Occ 0 3 5 6 p=4 q=0	Hij = -0.117961
+Occ 0 3 5 6 p=7 q=3	Hij = 0.150499
+Occ 0 3 5 6 p=1 q=5	Hij = 0.095712
+Occ 0 3 5 6 p=2 q=6	Hij = -0.081433
+Occ 0 1 2 7 p=4 q=0	Hij = -0.095712
+Occ 0 1 2 7 p=5 q=1	Hij = -0.043258
+Occ 0 1 2 7 p=6 q=2	Hij = 0.089482
+Occ 0 1 2 7 p=3 q=7	Hij = 0.000000
+Occ 1 2 4 7 p=5 q=1	Hij = 0.117961
+Occ 1 2 4 7 p=6 q=2	Hij = -0.150499
+Occ 1 2 4 7 p=0 q=4	Hij = -0.095712
+Occ 1 2 4 7 p=3 q=7	Hij = 0.081433
+Occ 0 2 5 7 p=4 q=0	Hij = 0.021010
+Occ 0 2 5 7 p=6 q=2	Hij = -0.008049
+Occ 0 2 5 7 p=1 q=5	Hij = -0.043258
+Occ 0 2 5 7 p=3 q=7	Hij = -0.061018
+Occ 0 1 6 7 p=4 q=0	Hij = 0.052454
+Occ 0 1 6 7 p=5 q=1	Hij = -0.052454
+Occ 0 1 6 7 p=2 q=6	Hij = 0.089482
+Occ 0 1 6 7 p=3 q=7	Hij = -0.089482
+Occ 3 4 5 6 p=7 q=3	Hij = -0.069066
+Occ 3 4 5 6 p=0 q=4	Hij = -0.117961
+Occ 3 4 5 6 p=1 q=5	Hij = -0.021010
+Occ 3 4 5 6 p=2 q=6	Hij = 0.020416
+Occ 2 4 5 7 p=6 q=2	Hij = 0.069066
+Occ 2 4 5 7 p=0 q=4	Hij = 0.021010
+Occ 2 4 5 7 p=1 q=5	Hij = 0.117961
+Occ 2 4 5 7 p=3 q=7	Hij = -0.020416
+Occ 1 4 6 7 p=5 q=1	Hij = -0.022248
+Occ 1 4 6 7 p=0 q=4	Hij = 0.052454
+Occ 1 4 6 7 p=2 q=6	Hij = -0.150499
+Occ 1 4 6 7 p=3 q=7	Hij = 0.008049
+Occ 0 5 6 7 p=4 q=0	Hij = 0.022248
+Occ 0 5 6 7 p=1 q=5	Hij = -0.052454
+Occ 0 5 6 7 p=2 q=6	Hij = -0.008049
+Occ 0 5 6 7 p=3 q=7	Hij = 0.150499
+Occ 4 5 6 7 p=0 q=4	Hij = 0.022248
+Occ 4 5 6 7 p=1 q=5	Hij = -0.022248
+Occ 4 5 6 7 p=2 q=6	Hij = 0.069066
+Occ 4 5 6 7 p=3 q=7	Hij = -0.069066
+   2    0    0.00e+00          20        -2.1663874477          1        0.01
+Performing final tight davidson with tol: 5e-05
+Exiting variational iterations
+
+Calculating 2-RDM
+E(one-body) from 2RDM:      -6.7142183811
+E(two-body) from 2RDM:       2.2547296861
+E from 2RDM:                -2.1663874477
+
+Variational calculation result
+Root             Energy     Time(s)
+   0       -2.1663874477        0.01
+
+Printing most important determinants
+ Det     weight  Determinant string
+State :   0
+   0      -0.9677101161  2 2 0 0 
+   1       0.1876860064  2 0 2 0 
+   2       0.0789294756  a b b a 
+   3       0.0789294756  b a a b 
+   4       0.0649958005  0 2 2 0 
+   5       0.0520378469  0 2 0 2 
+
+
+**************************************************************
+Returning without error
+**************************************************************
+
+

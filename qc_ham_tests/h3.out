@@ -1,0 +1,10 @@
+[['H', (0, 0, 0)], ['H', (0, 0, 1)], ['H', (0, 0, 2)]]
+converged SCF energy = -1.52399620024611
+3 3
+PySCF HF Electronic Energy -2.846939227546109
+PySCF FCI Total Energy: -1.5683518645129135
+PySCF FCI Electronic Energy: -2.8912948918129135
+Nuclear Repulsion = 1.3229430273
+<T + V_ne> -4.186316116217575
+<V_ee> 2.590042448809326
+Number of Dets in FCI expansions= (3,)

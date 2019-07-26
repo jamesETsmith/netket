@@ -1,0 +1,240 @@
+#INFO: **** input file is /mnt/home/jsmith/apps/pull_requests/netket/qc_ham_tests/test_spinorbital.py ****
+from time import time
+import netket as nk
+import numpy as np
+from functools import reduce
+from pyscf import gto
+from pyscf import scf
+from pyscf import ao2mo
+from pyscf import mcscf
+from pyscf import fci
+from pyscf.shciscf.shci import SHCI
+import pdb
+
+L = 4
+
+# Make integrals
+np.random.seed(20)
+# atom = [["H", (np.random.random(1), np.random.random(1), i)] for i in range(L)]
+atom = [["H", (0, 0, i)] for i in range(L)]
+print(atom)
+mol = gto.M(
+    atom=atom, spin=0, symmetry=False, charge=0, verbose=5, output="spinorb.out"
+)
+mf = scf.RHF(mol).run()
+
+nmo = mf.mo_coeff.shape[0]
+nelec = mol.nelec[0] + mol.nelec[1]
+print(nmo, nelec)
+eri = mol.intor("int2e_sph")
+g = ao2mo.full(eri, mf.mo_coeff, verbose=0, compact=False)
+
+t = mol.intor_symmetric("int1e_kin")
+v = mol.intor_symmetric("int1e_nuc")
+h = reduce(np.dot, (mf.mo_coeff.T, t + v, mf.mo_coeff))
+
+if True:
+    cisolver = fci.direct_spin1.FCI(mol)
+    e_exact, ci = cisolver.kernel(h, g, h.shape[1], mol.nelec, ecore=mol.energy_nuc())
+    rdm1, rdm2 = cisolver.make_rdm12(ci, h.shape[1], mol.nelec)
+
+    print("PySCF HF Electronic Energy", mf.e_tot - mol.energy_nuc())
+    print("PySCF FCI Total Energy:", e_exact)
+    print("PySCF FCI Electronic Energy:", e_exact - mol.energy_nuc())
+    print("Nuclear Repulsion =", mol.energy_nuc())
+    print("<T + V_ne>", np.einsum("ij,ji", h, rdm1))
+    print("<V_ee>", np.einsum("pqrs,pqrs", g, rdm2))
+    print("Number of Dets in FCI expansions=", ci.shape)
+    # exit(0)
+
+# exit(0)
+if True:
+    mc = mcscf.CASCI(mf, mf.mo_coeff.shape[0], mol.nelectron)
+    mc.fcisolver = SHCI(mol)
+    mc.fcisolver.sweep_iter = [0]
+    mc.fcisolver.sweep_epsilon = [0]
+    mc.kernel()
+
+
+# g *= 0.5
+
+#
+# NetKet
+#
+
+hi = nk.hilbert.SpinOrbital(
+    graph=nk.graph.Hypercube(length=nmo * 2, n_dim=1), nelec=nelec
+)
+
+ham = nk.operator.QCHamiltonian(
+    hilbert=hi,
+    h=h,
+    g=g.reshape(nmo ** 2, nmo ** 2),
+    e0=mf.energy_nuc(),
+    nelec=mol.nelectron,
+)
+# exit(0)
+
+# Machine
+ma = nk.machine.RbmSpin(hilbert=hi, alpha=1)
+ma.init_random_parameters(seed=1234, sigma=0.01)
+
+# Sampler
+sa = nk.sampler.MetropolisHamiltonian(machine=ma, hamiltonian=ham)
+
+# Optimizer
+# op = nk.optimizer.Sgd(learning_rate=0.01)
+op = nk.optimizer.AmsGrad(learning_rate=0.01, beta1=0.8, beta2=0.95, epscut=1e-8)
+
+# Variational Monte Carlo
+gs = nk.variational.Vmc(
+    hamiltonian=ham, sampler=sa, optimizer=op, n_samples=1, diag_shift=0.01
+)
+
+# ob = nk.exact.full_ed(operator=ham)
+# ob = nk.exact.lanczos_ed(operator=ham)
+# print(ob.eigenvalues)
+# exit(0)
+# pdb.set_trace()
+
+t0 = time()
+gs.run(output_prefix="test", n_iter=1, save_params_every=20)
+print("Time fo NetKet", time() - t0)
+
+#INFO: ******************** input file end ********************
+
+
+System: uname_result(system='Linux', node='worker3009', release='3.10.0-957.10.1.el7.x86_64', version='#1 SMP Mon Mar 18 15:06:45 UTC 2019', machine='x86_64', processor='x86_64')  Threads 40
+Python 3.7.3 | packaged by conda-forge | (default, Mar 27 2019, 23:01:00) 
+[GCC 7.3.0]
+numpy 1.16.4  scipy 1.3.0
+Date: Fri Jul 26 17:41:07 2019
+PySCF version 1.6.1
+PySCF path  /mnt/home/jsmith/apps/pull_requests/pyscf/pyscf
+GIT HEAD      ref: refs/heads/master
+GIT master branch  5de2156f757d850e16324802b0f8dbdf97b7fa26
+
+[CONFIG] conf_file None
+[INPUT] verbose = 5
+[INPUT] max_memory = 4000 
+[INPUT] num. atoms = 4
+[INPUT] num. electrons = 4
+[INPUT] charge = 0
+[INPUT] spin (= nelec alpha-beta = 2S) = 0
+[INPUT] symmetry False subgroup None
+[INPUT] Mole.unit = angstrom
+[INPUT]  1 H      0.000000000000   0.000000000000   0.000000000000 AA    0.000000000000   0.000000000000   0.000000000000 Bohr
+[INPUT]  2 H      0.000000000000   0.000000000000   1.000000000000 AA    0.000000000000   0.000000000000   1.889726124565 Bohr
+[INPUT]  3 H      0.000000000000   0.000000000000   2.000000000000 AA    0.000000000000   0.000000000000   3.779452249130 Bohr
+[INPUT]  4 H      0.000000000000   0.000000000000   3.000000000000 AA    0.000000000000   0.000000000000   5.669178373695 Bohr
+[INPUT] ---------------- BASIS SET ---------------- 
+[INPUT] l, kappa, [nprim/nctr], expnt,             c_1 c_2 ...
+[INPUT] H
+[INPUT] 0    0    [3    /1   ]  3.42525091        0.15432897
+                                0.62391373        0.53532814
+                                0.1688554         0.44463454
+
+nuclear repulsion = 2.29310124732
+number of shells = 4
+number of NR pGTOs = 12
+number of NR cGTOs = 4
+basis = sto-3g
+ecp = {}
+CPU time:         4.78
+
+
+******** <class 'pyscf.scf.hf.RHF'> ********
+method = RHF
+initial guess = minao
+damping factor = 0
+level shift factor = 0
+DIIS = <class 'pyscf.scf.diis.CDIIS'>
+DIIS start cycle = 1
+DIIS space = 8
+SCF tol = 1e-09
+SCF gradient tol = None
+max. SCF cycles = 50
+direct_scf = True
+direct_scf_tol = 1e-13
+chkfile to save SCF result = /mnt/home/jsmith/apps/pull_requests/netket/qc_ham_tests/tmpie3fphws
+max_memory 4000 MB (current use 70 MB)
+Set gradient conv threshold to 3.16228e-05
+cond(S) = 6.480049377771898
+E1 = -6.3898604032870345  E_coul = 2.5470830031389715
+init E= -1.54967615282806
+    CPU time for initialize scf      0.87 sec, wall time      0.03 sec
+  HOMO = -0.267152342005714  LUMO = 0.204336848196493
+  mo_energy =
+[-0.61568572 -0.26715234  0.20433685  0.80738765]
+E1 = -6.762788071335388  E_coul = 2.374524482051968
+cycle= 1 E= -2.09516234196342  delta_E= -0.545  |g|= 0.0787  |ddm|= 1.36
+    CPU time for cycle= 1      0.18 sec, wall time      0.00 sec
+  HOMO = -0.378986119487863  LUMO = 0.288789924400927
+  mo_energy =
+[-0.62915664 -0.37898612  0.28878992  0.86380221]
+E1 = -6.7740649999138185  E_coul = 2.3826818940153407
+cycle= 2 E= -2.09828185857848  delta_E= -0.00312  |g|= 0.0197  |ddm|= 0.149
+    CPU time for cycle= 2      0.14 sec, wall time      0.00 sec
+  HOMO = -0.38142145299665  LUMO = 0.296759092230768
+  mo_energy =
+[-0.62203745 -0.38142145  0.29675909  0.86796847]
+E1 = -6.771572206391329  E_coul = 2.379928638276147
+cycle= 3 E= -2.09854232079518  delta_E= -0.00026  |g|= 0.00243  |ddm|= 0.0423
+    CPU time for cycle= 3      0.31 sec, wall time      0.01 sec
+  HOMO = -0.382556735185204  LUMO = 0.296604740592087
+  mo_energy =
+[-0.62335233 -0.38255674  0.29660474  0.86576555]
+E1 = -6.771523473779146  E_coul = 2.379876289481854
+cycle= 4 E= -2.09854593697729  delta_E= -3.62e-06  |g|= 6.48e-06  |ddm|= 0.00613
+    CPU time for cycle= 4      0.63 sec, wall time      0.02 sec
+Linear dependence found in DIIS error vectors.
+  HOMO = -0.382549916832576  LUMO = 0.296602145543379
+  mo_energy =
+[-0.62334659 -0.38254992  0.29660215  0.86575998]
+E1 = -6.771522963170084  E_coul = 2.3798757788563885
+cycle= 5 E= -2.0985459369937  delta_E= -1.64e-11  |g|= 2.96e-06  |ddm|= 8.3e-06
+    CPU time for cycle= 5      2.41 sec, wall time      0.06 sec
+  HOMO = -0.382544236351021  LUMO = 0.296600242213199
+  mo_energy =
+[-0.62334147 -0.38254424  0.29660024  0.86575543]
+E1 = -6.771522431894965  E_coul = 2.3798752475772047
+Extra cycle  E= -2.09854593699776  delta_E= -4.06e-12  |g|= 6.29e-07  |ddm|= 5.7e-06
+    CPU time for scf_cycle      6.23 sec, wall time      0.16 sec
+    CPU time for SCF      6.23 sec, wall time      0.16 sec
+converged SCF energy = -2.09854593699776
+
+******** CASCI flags ********
+CAS (2e+2e, 4o), ncore = 0, nvir = 0
+natorb = False
+canonicalization = True
+sorting_mo_energy = False
+max_memory 4000 (MB)
+
+******** SHCI flags ********
+executable             = /mnt/home/jsmith/apps/Dice/Dice
+mpiprefix              = 
+scratchDirectory       = /scratch
+integralFile           = ./FCIDUMP
+configFile             = ./input.dat
+outputFile             = ./output.dat
+maxIter                = 6
+sweep_iter             = [    0]
+sweep_epsilon          = [    0]
+nPTiter                = 0
+Stochastic             = True
+restart                = False
+fullrestart            = False
+num_thrds              = 1
+memory                 = None
+
+Start CASCI
+    CPU time for integral transformation to CAS space      2.66 sec, wall time      0.07 sec
+core energy = 2.29310124732
+    CPU time for effective h1e in CAS space      3.17 sec, wall time      0.08 sec
+    CPU time for FCI solver      1.62 sec, wall time      0.07 sec
+Density matrix diagonal elements [1.9660504  1.90600047 0.09898582 0.02896338]
+i = 1  <i|F|i> =  -0.61310286
+i = 2  <i|F|i> =  -0.36565729
+i = 3  <i|F|i> =   0.28137225
+i = 4  <i|F|i> =   0.85947588
+CASCI E = -2.16638744769413  E(CI) = -4.45948869501413  S^2 = 0.0000000
