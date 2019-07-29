@@ -253,26 +253,30 @@ public:
     // occs.push_back({4, 5, 6, 7});
 
     // All configs from Dice
-    occs.push_back({0, 1, 2, 3});
-    occs.push_back({0, 1, 2, 7});
-    occs.push_back({0, 1, 3, 6});
-    occs.push_back({0, 1, 4, 5});
-    occs.push_back({0, 1, 6, 7});
-    occs.push_back({0, 2, 3, 5});
-    occs.push_back({0, 2, 5, 7});
-    occs.push_back({0, 3, 4, 7});
-    occs.push_back({0, 3, 5, 6});
-    occs.push_back({0, 5, 6, 7});
-    occs.push_back({1, 2, 3, 4});
-    occs.push_back({1, 2, 4, 7});
-    occs.push_back({1, 2, 5, 6});
-    occs.push_back({1, 3, 4, 6});
-    occs.push_back({1, 4, 6, 7});
-    occs.push_back({2, 3, 4, 5});
-    occs.push_back({2, 3, 6, 7});
-    occs.push_back({2, 4, 5, 7});
-    occs.push_back({3, 4, 5, 6});
-    occs.push_back({4, 5, 6, 7});
+    occs.push_back({0, 1, 2, 3}); // 0
+    occs.push_back({1, 2, 3, 4}); // 1
+    occs.push_back({0, 2, 3, 5}); // 2
+    occs.push_back({0, 1, 4, 5}); // 3
+    occs.push_back({2, 3, 4, 5}); // 4
+    occs.push_back({0, 1, 3, 6}); // 5
+    occs.push_back({1, 3, 4, 6}); // 6
+    occs.push_back({1, 2, 5, 6}); // 7
+    occs.push_back({0, 3, 5, 6}); // 8
+    occs.push_back({0, 1, 2, 7}); // 9
+    occs.push_back({1, 2, 4, 7}); // 10
+    occs.push_back({0, 3, 4, 7}); // 11
+    occs.push_back({0, 2, 5, 7}); // 12
+    occs.push_back({0, 1, 6, 7}); // 13
+    occs.push_back({2, 3, 6, 7}); // 14
+    occs.push_back({3, 4, 5, 6}); // 15
+    occs.push_back({2, 4, 5, 7}); // 16
+    occs.push_back({1, 4, 6, 7}); // 17
+    occs.push_back({0, 5, 6, 7}); // 18
+    occs.push_back({4, 5, 6, 7}); // 19
+
+    // H2
+    // occs.push_back({0, 1});
+    // occs.push_back({2, 3});
     return occs;
   }
 
@@ -383,9 +387,11 @@ public:
           // VectorConstRefType v(j.begin(), j.end());
           // VectorConstRefType v = Eigen::Map<VectorConstRefType>(J.data());
           Eigen::VectorXd vj(norb_);
+          vj *= 0.0;
           for (int Ji = 0; Ji < J.size(); Ji++) {
             vj(J.at(Ji)) = 1.;
           }
+          std::cout << vj << '\n';
           H(i, j) = Calculate_Hij(J, vj, orbdiff.at(3), orbdiff.at(2),
                                   orbdiff.at(1), orbdiff.at(0));
         } else {
@@ -398,6 +404,8 @@ public:
     // Eigen::EigenSolver<MatrixXd> es(H);
     Eigen::SelfAdjointEigenSolver<MatrixXd> es(H);
     printf("Eigenvalues fo H\n");
+    std::cout << std::setprecision(14);
+    std::cout << H << "\n";
     std::cout << es.eigenvalues() << "\n";
   }
 
@@ -583,7 +591,14 @@ public:
     double Hij = 0;
     double par = Parity(v, p, q, r, s);
 
-    Hij += g_(p, q, r, s);
+    if (p == 5 && q == 0 && r == 6 && s == 3) {
+      printf("Double Ex stuff\n%f\t%f\n%f\n", g_(p, q, r, s), g_(r, s, p, q),
+             -g_(p, s, r, q));
+    }
+
+    if (p % 2 == q % 2) {
+      Hij += g_(p, q, r, s);
+    }
 
     if (q % 2 == r % 2) {
       Hij -= g_(p, s, r, q);
@@ -612,75 +627,73 @@ public:
     // p^+ q
     // q -> p
     double sign = 1.0;
+    // int P = std::max(p, q);
+    // int Q = std::min(p, q);
 
-    // Annihilation operator
-    for (int b = 0; b < q; b++) {
-      if (v(b) == 1.) {
-        sign *= -1.0;
+    // for (int i = Q; i < P; i++) {
+    //   if (v(i) == 1) {
+    //     sign *= -1.;
+    //   }
+    // }
+    printf("p = %d q = %d\n", p, q);
+    for (int i = 0; i < q; i++) {
+      if (v(i) == 1) {
+        sign *= -1.;
       }
     }
+    printf("Parity after first step = %f\n", sign);
 
-    // Creation operator
-    for (int a = 0; a < p; a++) {
-      if (v(a) == 1.) {
-        sign *= -1.0;
+    for (int i = 0; i < p; i++) {
+      if (v(i) == 1) {
+        sign *= -1.;
       }
     }
+    printf("Parity after second step = %f\n", sign);
 
-    if (p >= q) {
+    if (p > q) {
       sign *= -1.;
     }
+    printf("Parity after third step = %f\n", sign);
+    // if (v(Q) == 1) {
+    //   sign *= -1.;
+    // }
     return sign;
   }
 
   double Parity(VectorConstRefType v, int p, int q, int r, int s) const {
-    // p^+ q r^+ s
+    // p^+ r^+ s q
     // q -> p
     // s -> r
     double sign = 1.0;
-
-    // S
-    for (int d = 0; d < s; d++) {
-      if (v(d) == 1.) {
-        sign *= -1.0;
-      }
+    sign *= Parity(v, p, q);
+    if (p == 5 && q == 0 && r == 6 && s == 3) {
+      printf("Sign = %f\n", sign);
     }
 
-    // R^+
-    for (int c = 0; c < r; c++) {
-      if (v(c) == 1.) {
-        sign *= -1.0;
-      }
+    // sign *= Parity(v, r, s);
+    // if (p == 6 && q == 3 && r == 5 && s == 0) {
+    //   printf("Sign = %f\n", sign);
+    // }
+
+    // if (p > s || r > q) {
+    //   sign *= -1.;
+    // }
+
+    Eigen::VectorXd v2 = v;
+
+    // Change occupation
+    v2(p) = 1;
+    v2(q) = 0;
+
+    sign *= Parity(v2, r, s);
+    if (p == 5 && q == 0 && r == 6 && s == 3) {
+      printf("Sign = %f\n", sign);
     }
 
-    if (r >= s) {
-      sign *= -1.;
-    }
+    // Reset occupation
+    v2(p) = 0;
+    v2(q) = 1;
 
-    // Q
-    for (int b = 0; b < q; b++) {
-      if (v(b) == 1.) {
-        sign *= -1.0;
-      }
-    }
-
-    // For the other two cases the sign doesn't change
-    if ((q >= s && q < r) || (q < s && q >= r)) {
-      sign *= -1.;
-    }
-
-    // P^+
-    for (int a = 0; a < p; a++) {
-      if (v(a) == 1.) {
-        sign *= -1.0;
-      }
-    }
-
-    // For the other four cases the sign doesn't change
-    if ((p >= q && p >= r && p >= s) || (p >= q && p < r && p < s) ||
-        (p < q && p >= r && p < s) || (p < q && p < r && p >= s)) {
-      sign *= -1.;
-    }
     return sign;
   }
 
