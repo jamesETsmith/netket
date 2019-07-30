@@ -27,7 +27,7 @@ SpinOrbital::SpinOrbital(const AbstractGraph &graph, const int nelec)
 
 bool SpinOrbital::IsDiscrete() const { return true; }
 
-int SpinOrbital::LocalSize() const { return norb_; }
+int SpinOrbital::LocalSize() const { return local_.size(); }
 
 int SpinOrbital::Size() const { return size_; }
 

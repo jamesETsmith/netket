@@ -27,7 +27,7 @@ namespace netket {
 
 class SpinOrbital : public AbstractHilbert {
   const AbstractGraph &graph_;
-  const std::vector<double> local_{0, 1};
+  const std::vector<double> local_{0., 1.};
   const int nelec_; // The number of electrons (assumes number conservation)
 
   // Graph properties

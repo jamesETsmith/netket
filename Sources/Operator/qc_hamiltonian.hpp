@@ -26,6 +26,7 @@
 #include <limits>
 #include <map>
 #include <vector>
+#include <array>
 #include <math.h>
 #include <stdio.h>
 #include "Hilbert/abstract_hilbert.hpp"
@@ -44,7 +45,7 @@ struct OneBodyIntegrals {
   const int N;
 
   OneBodyIntegrals(const RowMatrixXd h) : integrals(h), N(h.cols()) {
-    std::cout << "Initializing OneBodyIntegrals\n";
+    InfoMessage() << "Initializing OneBodyIntegrals\n";
   }
 
   double operator()(int i, int j) const {
@@ -59,7 +60,7 @@ struct TwoBodyIntegrals {
   const int N;
 
   TwoBodyIntegrals(const RowMatrixXd g) : integrals(g), N(sqrt(g.cols())) {
-    std::cout << "Initializing TwoBodyIntegrals\n";
+    InfoMessage() << "Initializing TwoBodyIntegrals\n";
   }
 
   double operator()(int i, int j, int k, int l) const {
@@ -86,6 +87,9 @@ public:
   using VectorRefType = AbstractOperator::VectorRefType;
   using VectorConstRefType = AbstractOperator::VectorConstRefType;
 
+  // For QC only
+  using DetVectorType = std::vector<std::array<int, 5>>;
+
 private:
   // const AbstractHilbert &hilbert_;
   std::vector<MatType> mat_;
@@ -103,22 +107,33 @@ private:
   const int norb_;
   const int nmo_;
   const int nelec_;
+  const int sz_;
   const double constant_;
+
+  // Resized vectors for FindConn
+  mutable std::vector<int> occ;   // Keep track of occ spin orbitals
+  mutable std::vector<int> unocc; // Keep trach of unocc spin orbitals
+  mutable DetVectorType dets;
 
   static constexpr double mel_cutoff_ = 1.0e-8;
 
 public:
   explicit QCHamiltonian(std::shared_ptr<const AbstractHilbert> hilbert,
-                         const RowMatrixXd &h, const RowMatrixXd &g, double e0,
-                         int nelec)
+                         const RowMatrixXd &h, const RowMatrixXd &g, int sz,
+                         double e0, int nelec)
       : AbstractOperator(hilbert), h_(h), g_(g), norb_(hilbert->Size()),
-        nmo_(hilbert->Size()), nelec_(nelec), constant_(e0) {
+        nmo_(hilbert->Size()), nelec_(nelec), sz_(sz), constant_(e0) {
     // Check that dimension of one and two body integrals match dimension of the
     // hilbert space
     if (norb_ != h_.N * 2 || norb_ != g_.N * 2) {
       throw InvalidInputError(
           "Matrix size in operator is inconsistent with Hilbert space");
     }
+
+    // Reserve space for vectors (this is for performance)
+    occ.reserve(100);
+    unocc.reserve(100);
+    dets.reserve(1000);
 
     InfoMessage() << "Quantum chemistry Hamiltonian created" << std::endl;
   }
@@ -136,6 +151,33 @@ public:
     newconfs.clear();
     mel.clear();
 
+    // Runtime test for correct spin and # electrons
+    // return;
+    int test_nelec = 0;
+    int test_sz = 0;
+    for (int i = 0; i < v.size(); i++) {
+      if (v(i) == 1) {
+        test_nelec += 1; // Check for particle number
+        if (i % 2 == 0) {
+          test_sz += 1; // Check for conservations of Sz
+        } else {
+          test_sz -= 1;
+        }
+      }
+    }
+    if (test_nelec != nelec_ || test_sz != sz_) {
+      // printf("test_nelec = %f\n", test_nelec);
+      // printf("test_sz = %f\n", test_sz);
+      // printf("State =\n");
+      // std::cout << v << "\n";
+      return;
+    }
+
+    // Clear the reserved data structures
+    occ.clear();
+    unocc.clear();
+    dets.clear();
+
     connectors.resize(1);
     newconfs.resize(1);
     mel.resize(1);
@@ -144,22 +186,21 @@ public:
     mel[0] = 0;
     connectors[0].resize(0);
     newconfs[0].resize(0);
-
-    std::vector<int> occ;   // Keep track of occ spin orbitals
-    std::vector<int> unocc; // Keep trach of unocc spin orbitals
     GetOpenClosed(v, occ, unocc);
 
     // Excitation = 0 (no new configurations generated)
+    // Create occ/unocc as class members and reset at beginning
+    // Change dets to std::vector<std::array<int,5>>
     mel[0] += Calculate_Hij(occ);
-    std::vector<std::vector<int>> dets;
+    // std::vector<std::array<int, 5>> dets;
     GenSinglyExcitedDets(occ, unocc, dets);
     GenDoublyExcitedDets(occ, unocc, dets);
 
-    for (auto det : dets) {
+    for (const auto &det : dets) {
       // Single excitation (one-body operators)
-      if (det.size() == 2) {
-        int p = det.at(1);
-        int q = det.at(0);
+      if (det.at(0) == 2) {
+        int p = det[2];
+        int q = det[1];
         double Hij = Calculate_Hij(occ, p, q);
         if (std::abs(Hij) < mel_cutoff_) {
           continue;
@@ -169,11 +210,11 @@ public:
         mel.push_back(Hij);
       }
       // Double excitations (two-body operators)
-      else if (det.size() == 4) {
-        int p = det.at(3);
-        int q = det.at(2);
-        int r = det.at(1);
-        int s = det.at(0);
+      else if (det.at(0) == 4) {
+        int p = det[4];
+        int q = det[3];
+        int r = det[2];
+        int s = det[1];
 
         double Hij = Calculate_Hij(occ, v, p, q, r, s);
         if (std::abs(Hij) < mel_cutoff_) {
@@ -396,11 +437,11 @@ public:
    * update, e.g. s r^+ q p^+.
    */
   void GenSinglyExcitedDets(std::vector<int> &occ, std::vector<int> &unocc,
-                            std::vector<std::vector<int>> &dets) const {
+                            DetVectorType &dets) const {
     for (auto p : unocc) {
       for (auto q : occ) {
         if (p % 2 == q % 2) {
-          dets.push_back({q, p});
+          dets.push_back({2, q, p, 0, 0});
         }
       }
     }
@@ -416,7 +457,7 @@ public:
    * update, e.g. s r^+ q p^+.
    */
   void GenDoublyExcitedDets(std::vector<int> &occ, std::vector<int> &unocc,
-                            std::vector<std::vector<int>> &dets) const {
+                            DetVectorType &dets) const {
     std::vector<int> occAlpha;
     std::vector<int> occBeta;
     std::vector<int> unoccAlpha;
@@ -450,7 +491,7 @@ public:
           for (auto ub : unoccBeta) {
             // Adding operators in the order in which they are applied to the
             // ket
-            dets.push_back({ob, ub, oa, ua});
+            dets.push_back({4, ob, ub, oa, ua});
           }
         }
       }
@@ -467,7 +508,7 @@ public:
             int r = unoccAlpha.at(j2);
             // Adding operators in the order in which they are applied to the
             // ket
-            dets.push_back({s, r, q, p});
+            dets.push_back({4, s, r, q, p});
           }
         }
       }
@@ -484,7 +525,7 @@ public:
             int r = unoccBeta.at(j2);
             // Adding operators in the order in which they are applied to the
             // ket
-            dets.push_back({s, r, q, p});
+            dets.push_back({4, s, r, q, p});
           }
         }
       }
@@ -583,12 +624,13 @@ public:
   void GetOpenClosed(VectorConstRefType v, std::vector<int> &occ,
                      std::vector<int> &unocc) const {
     // Find occ and unocc spin orbitals
-    for (int i = 0; i < norb_; i++) {
+    for (int i = 0; i < v.size(); i++) {
       if (v(i) == 0) { // unoccupied
         unocc.push_back(i);
       } else if (v(i) == 1) { // occupied
         occ.push_back(i);
       } else {
+        std::cout << v << std::endl;
         throw std::runtime_error{
             "Occupation number not supported for QCHamiltonian\n"};
       }

@@ -38,9 +38,9 @@ void AddQCHamiltonian(py::module &subm) {
                                   Eigen::RowMajor>,
                     Eigen::Matrix<double, Eigen::Dynamic, Eigen::Dynamic,
                                   Eigen::RowMajor>,
-                    double, int>(),
+                    int, double, int>(),
            py::keep_alive<1, 2>(), py::arg("hilbert"), py::arg("h"),
-           py::arg("g"), py::arg("e0"), py::arg("nelec"),
+           py::arg("g"), py::arg("sz"), py::arg("e0"), py::arg("nelec"),
            R"EOF(
            Constructs a new ``QCHamiltonian`` given a hilbert space and (if
            specified) a constant level shift.
