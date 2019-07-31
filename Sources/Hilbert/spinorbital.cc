@@ -16,10 +16,16 @@
 
 namespace netket {
 
-SpinOrbital::SpinOrbital(const AbstractGraph &graph, const int nelec)
-    : graph_(graph), nelec_(nelec) {
+SpinOrbital::SpinOrbital(const AbstractGraph &graph, const int nelec,
+                         const int sz)
+    : graph_(graph), nelec_(nelec), sz_(sz) {
   size_ = graph.Size();
   norb_ = graph.Size();
+
+  // Reserve the space for alpha and beta vectors
+  alpha.reserve(100);
+  beta.reserve(100);
+
   InfoMessage() << "SpinOrbital Hilbert space created" << std::endl;
   InfoMessage() << nelec_ << " electons in " << norb_ << " spin orbitals"
                 << std::endl;
@@ -38,19 +44,40 @@ void SpinOrbital::RandomVals(Eigen::Ref<Eigen::VectorXd> state,
   // Populate the state assuming HF (or HF like orbital ordering)
   // i.e. this is not random
 
-  // std::uniform_int_distribution<int> distribution(0, norb_ - 1);
+  int nAlpha = nelec_ + sz_;
+  int nBeta = nelec_ - sz_;
+  int nSpatialOrbs = state.size() / 2;
+
+  alpha.clear();
+  beta.clear();
+
+  for (int i = 0; i < norb_; i++) {
+    alpha.push_back(i);
+    beta.push_back(i);
+  }
+
+  std::random_shuffle(alpha.begin(), alpha.end(), rgen);
+  std::random_shuffle(beta).begin(), beta.end(), rgen);
 
   assert(state.size() == size_);
 
-  //
-  for (int i = 0; i < state.size(); i++) {
-    if (i < nelec_) {
-      state(i) = local_[1];
-    } else {
-      state(i) = local_[0];
+  for (int i = 0; i < nSpatialOrbs; i++) {
+    if (i < nAlpha) {
+      state(2 * i) = 1.;
     }
-    // state(i) = local_[distribution(rgen)];
+    if (i < nBeta) {
+      state(2 * i + 1) = 1.;
+    }
   }
+
+  // for (int i = 0; i < state.size(); i++) {
+  //   if (i < nelec_) {
+  //     state(i) = local_[1];
+  //   } else {
+  //     state(i) = local_[0];
+  //   }
+  //   // state(i) = local_[distribution(rgen)];
+  // }
 }
 
 void SpinOrbital::UpdateConf(Eigen::Ref<Eigen::VectorXd> v,

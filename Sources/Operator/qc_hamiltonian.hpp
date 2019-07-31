@@ -431,15 +431,16 @@ public:
    * @brief Generate all possible singly excited configurations give a reference
    * configuration (occ, unocc).
    *
-   * @param occ The vector of occupied spin orbitals.
-   * @param unocc The vector of unoccupied spin orbitals.
+   * @param currentocc The vector of occupied spin orbitals.
+   * @param currentunocc The vector of unoccupied spin orbitals.
    * @param dets A 2D vector, containing the indices of the configuration to
    * update, e.g. s r^+ q p^+.
    */
-  void GenSinglyExcitedDets(std::vector<int> &occ, std::vector<int> &unocc,
+  void GenSinglyExcitedDets(std::vector<int> &currentocc,
+                            std::vector<int> &currentunocc,
                             DetVectorType &dets) const {
-    for (auto p : unocc) {
-      for (auto q : occ) {
+    for (auto p : currentunocc) {
+      for (auto q : currentocc) {
         if (p % 2 == q % 2) {
           dets.push_back({2, q, p, 0, 0});
         }
@@ -451,19 +452,20 @@ public:
    * @brief Generate all possible double excited configurations give a reference
    * configuration (occ, unocc).
    *
-   * @param occ The vector of occupied spin orbitals.
-   * @param unocc The vector of unoccupied spin orbitals.
+   * @param currentocc The vector of occupied spin orbitals.
+   * @param currentunocc The vector of unoccupied spin orbitals.
    * @param dets A 2D vector, containing the indices of the configuration to
    * update, e.g. s r^+ q p^+.
    */
-  void GenDoublyExcitedDets(std::vector<int> &occ, std::vector<int> &unocc,
+  void GenDoublyExcitedDets(std::vector<int> &currentocc,
+                            std::vector<int> &currentunocc,
                             DetVectorType &dets) const {
     std::vector<int> occAlpha;
     std::vector<int> occBeta;
     std::vector<int> unoccAlpha;
     std::vector<int> unoccBeta;
 
-    for (auto o : occ) {
+    for (auto o : currentocc) {
       if (o % 2 == 0) {
         occAlpha.push_back(o);
       } else if (o % 2 == 1) {
@@ -471,7 +473,7 @@ public:
       }
     }
 
-    for (auto u : unocc) {
+    for (auto u : currentunocc) {
       if (u % 2 == 0) {
         unoccAlpha.push_back(u);
       } else if (u % 2 == 1) {
@@ -536,18 +538,18 @@ public:
    * @brief Returns the energy of the configuration specified by occ. This is
    * Case 1 in Tables 2.3/2.4 in Szabo and Ostlund (1989).
    *
-   * @param occ The vector of occupied spin orbitals.
+   * @param currentocc The vector of occupied spin orbitals.
    * @return double Energy of the configuration.
    */
-  double Calculate_Hij(std::vector<int> &occ) const {
+  double Calculate_Hij(std::vector<int> &currentocc) const {
     double Hij = 0.0;
 
-    for (int ii = 0; ii < occ.size(); ii++) {
-      int i = occ.at(ii);
+    for (int ii = 0; ii < currentocc.size(); ii++) {
+      int i = currentocc[ii];
       Hij += h_(i, i);
 
-      for (int ji = ii + 1; ji < occ.size(); ji++) {
-        int j = occ.at(ji);
+      for (int ji = ii + 1; ji < currentocc.size(); ji++) {
+        int j = currentocc[ji];
         // Direct
         Hij += g_(i, i, j, j);
         if (i % 2 == j % 2) {
@@ -566,16 +568,16 @@ public:
    * excitation operator). This is Case 2 in Tables 2.3/2.4 in Szabo and
    * Ostlund (1989).
    *
-   * @param occ The vector of occupied spin orbitals.
+   * @param currentocc The vector of occupied spin orbitals.
    * @param p The spin orbital index of the creation operator.
    * @param q The spin orbital index of the annihilation operator.
    * @return double \f$\langle I|\hat{H}| J\rangle\f$
    */
-  double Calculate_Hij(std::vector<int> &occ, int p, int q) const {
+  double Calculate_Hij(std::vector<int> &currentocc, int p, int q) const {
     double Hij = h_(p, q);
     double par = 1.0;
 
-    for (auto i : occ) {
+    for (auto i : currentocc) {
       if (i > std::min(p, q) && i < std::max(p, q)) {
         par *= -1.;
       }
@@ -596,7 +598,7 @@ public:
    * excitation operator). This is Case 3 in Tables 2.3/2.4 in Szabo and
    * Ostlund (1989).
    *
-   * @param occ The vector of occupied spin orbitals.
+   * @param currentocc The vector of occupied spin orbitals.
    * @param v State vector for the ket.
    * @param p Orbital index for creation operator
    * @param q Orbital index for destruction operator
@@ -604,8 +606,8 @@ public:
    * @param s Orbital index for destruction operator
    * @return double \f$\langle I|\hat{H}| J\rangle\f$
    */
-  double Calculate_Hij(std::vector<int> &occ, VectorConstRefType v, int p,
-                       int q, int r, int s) const {
+  double Calculate_Hij(std::vector<int> &currentocc, VectorConstRefType v,
+                       int p, int q, int r, int s) const {
     double Hij = 0;
     double par = Parity(v, p, q, r, s);
 
@@ -621,14 +623,21 @@ public:
     return Hij;
   }
 
-  void GetOpenClosed(VectorConstRefType v, std::vector<int> &occ,
-                     std::vector<int> &unocc) const {
+  /**
+   * @brief Get vectors of the occupied and unoccied spin orbitals.
+   *
+   * @param v
+   * @param currentocc
+   * @param currentunocc
+   */
+  void GetOpenClosed(VectorConstRefType v, std::vector<int> &currentocc,
+                     std::vector<int> &currentunocc) const {
     // Find occ and unocc spin orbitals
     for (int i = 0; i < v.size(); i++) {
       if (v(i) == 0) { // unoccupied
-        unocc.push_back(i);
+        currentunocc.push_back(i);
       } else if (v(i) == 1) { // occupied
-        occ.push_back(i);
+        currentocc.push_back(i);
       } else {
         std::cout << v << std::endl;
         throw std::runtime_error{

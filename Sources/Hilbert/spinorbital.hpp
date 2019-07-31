@@ -29,13 +29,19 @@ class SpinOrbital : public AbstractHilbert {
   const AbstractGraph &graph_;
   const std::vector<double> local_{0., 1.};
   const int nelec_; // The number of electrons (assumes number conservation)
+  const int sz_;    // Sz * 2 i.e. the diff. in up and down electrons
 
   // Graph properties
   int norb_; // Number of spin orbitals
   int size_;
 
+  // Reserved vectors used in SpinOrbital::RandomVals
+  mutable std::vector<int> alpha;
+  mutable std::vector<int> beta;
+
 public:
-  explicit SpinOrbital(const AbstractGraph &graph, const int nelec);
+  explicit SpinOrbital(const AbstractGraph &graph, const int nelec,
+                       const int sz);
 
   bool IsDiscrete() const override;
 
