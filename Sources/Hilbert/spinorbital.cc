@@ -41,33 +41,41 @@ std::vector<double> SpinOrbital::LocalStates() const { return local_; }
 
 void SpinOrbital::RandomVals(Eigen::Ref<Eigen::VectorXd> state,
                              netket::default_random_engine &rgen) const {
-  // Populate the state assuming HF (or HF like orbital ordering)
-  // i.e. this is not random
+  assert(state.size() == size_);
 
-  int nAlpha = nelec_ + sz_;
-  int nBeta = nelec_ - sz_;
-  int nSpatialOrbs = state.size() / 2;
+  // Keep track of a few helpful numbers
+  int nalpha = nelec_ / 2 + sz_;
+  int nbeta = nelec_ / 2 - sz_;
+  int nspatialorbs = state.size() / 2;
 
+  // Reset alpha and beta
   alpha.clear();
   beta.clear();
 
-  for (int i = 0; i < norb_; i++) {
-    alpha.push_back(i);
-    beta.push_back(i);
-  }
+  // Populate alpha and beta with all possible spinorbital indices
+  // for (int i = 0; i < nspatialorbs; i++) {
+  //   alpha.push_back(i);
+  //   beta.push_back(i);
+  //   state(2 * i) = 0.0;
+  //   state(2 * i + 1) = 0.0;
+  // }
 
-  std::random_shuffle(alpha.begin(), alpha.end(), rgen);
-  std::random_shuffle(beta).begin(), beta.end(), rgen);
+  // // Shuffle them and then select the first nalpha and nbeta
+  // std::shuffle(alpha.begin(), alpha.end(), rgen);
+  // std::shuffle(beta.begin(), beta.end(), rgen);
 
-  assert(state.size() == size_);
+  // for (int a = 0; a < nalpha; a++) {
+  //   state(2 * alpha.at(a)) = 1.;
+  // }
 
-  for (int i = 0; i < nSpatialOrbs; i++) {
-    if (i < nAlpha) {
-      state(2 * i) = 1.;
-    }
-    if (i < nBeta) {
-      state(2 * i + 1) = 1.;
-    }
+  // for (int b = 0; b < nbeta; b++) {
+  //   state(2 * beta.at(b) + 1) = 1.;
+  // }
+
+  // Non-random configuration (HF)
+  for (int i = 0; i < nspatialorbs; i++) {
+    state(2 * i) = local_[i < nalpha]; // 1 if i < nalpha else 0
+    state(2 * i + 1) = local_[i < nbeta];
   }
 
   // for (int i = 0; i < state.size(); i++) {
@@ -93,4 +101,4 @@ void SpinOrbital::UpdateConf(Eigen::Ref<Eigen::VectorXd> v,
 } // namespace netket
 
 const AbstractGraph &SpinOrbital::GetGraph() const noexcept { return graph_; }
-}; // namespace netket
+} // namespace netket

@@ -1,4 +1,3 @@
-#!/mnt/home/jsmith/miniconda3/envs/omp_mpi/bin/python
 from time import time
 import netket as nk
 import numpy as np
@@ -10,15 +9,15 @@ from pyscf import mcscf
 from pyscf import fci
 from pyscf.shciscf.shci import SHCI
 
-L = 2
-Atom = "C"
+L = 6
+Atom = "H"
 file_base = "{}{}".format(Atom, L)
 spin = 0
 
 # Make integrals
 np.random.seed(20)
-atom = "C 0 0 0; C 0 0 1.8"
-# atom = [[Atom, (0, 0, i)] for i in range(L)]
+# atom = "C 0 0 0; C 0 0 1.25"
+atom = [[Atom, (0, 0, i)] for i in range(L)]
 # print(atom)
 mol = gto.M(
     atom=atom,
@@ -84,19 +83,79 @@ ham = nk.operator.QCHamiltonian(
 ma = nk.machine.RbmSpin(hilbert=hi, alpha=1)
 ma.init_random_parameters(seed=12345, sigma=0.01)
 
+# np_ma1 = np.sort(np.power(np.abs(ma.to_array()), 2))
+# ma.load("H6/H6.wf")
+# np_ma2 = np.sort(np.power(np.abs(ma.to_array()), 2))
+
+
+# def test_conf(conf):
+#     sz = 0
+#     nelec = 0
+#     for i, c in enumerate(conf):
+#         if c == 1:
+#             nelec += 1
+#             if i % 2 == 0:
+#                 sz += 1
+#             elif i % 2 == 1:
+#                 sz -= 1
+
+#     if sz != 0 or nelec != 6:
+#         return False
+#     else:
+#         return True
+
+
+# res = nk.exact.full_ed(ham, first_n=4, compute_eigenvectors=True)
+# print(res.eigenvalues)
+# print(res.eigenvectors[0])
+# gs_raw = res.eigenvectors[0]
+# gs = np.abs(
+#     np.array(
+#         [el for el, state in zip(res.eigenvectors[0], hi.states()) if test_conf(state)]
+#     )
+# )
+# gs /= gs.max()
+
+# states = [state for state in hi.states() if test_conf(state)]
+# # print(list(hi.states())[0])
+# # print(len(states))
+
+# logvals = np.array([ma.log_val(state) for state in states])
+# np_ma3 = np.sort(np.abs(np.exp(logvals - logvals.max())) ** 2)
+# np_ma3_arg = np.argsort(np.abs(np.exp(logvals - logvals.max())) ** 2)
+
+# print(np_ma3_arg[-1])
+# print(logvals[np_ma3_arg[-1]])
+# print(states[np_ma3_arg[-1]])
+# print(logvals[np_ma3_arg[-2]])
+
+
+# import matplotlib.pyplot as plt
+
+# plt.figure()
+# plt.plot(np_ma3, "o-")
+# plt.plot(gs ** 2, "o-")
+# # plt.ylim([-1e-4, 1e-4])
+# plt.savefig("wf_test.png")
+# plt.xlim([380, 400])
+
+# # print(states[-20:])
+# # print(np.abs(logvals[-20:]))
+# exit(0)
+
 # Sampler
 sa = nk.sampler.MetropolisHamiltonian(machine=ma, hamiltonian=ham)
 # sa = nk.sampler.MetropolisHamiltonianPt(machine=ma, hamiltonian=ham, n_replicas=10)
 
 # Optimizer
-op = nk.optimizer.Sgd(learning_rate=0.01)
+# op = nk.optimizer.Sgd(learning_rate=0.1)
 # op = nk.optimizer.Momentum(learning_rate=0.01)
-# op = nk.optimizer.AmsGrad(learning_rate=0.01, beta1=0.95, beta2=0.99, epscut=1e-8)
+op = nk.optimizer.AmsGrad(learning_rate=0.01, beta1=0.95, beta2=0.99, epscut=1e-8)
 
 # Variational Monte Carlo
 # pars = [ n_samples, n_iter, save_params_every ]
-pars = [100000, 2000, 100]  # Real run
-# pars = [10000, 100, 10]  # Small run
+# pars = [20000, 1000, 100]  # Real run
+pars = [10000, 100, 10]  # Small run
 # pars = [1000, 10, 10]  # Profiling
 # pars = [1, 1, 1]  # For testing ED
 
@@ -115,9 +174,6 @@ gs.run(
     n_iter=pars[1],
     save_params_every=pars[2],
 )
-# res = nk.exact.full_ed(ham, first_n=4, compute_eigenvectors=True)
-# print(res.eigenvalues)
-# print(res.eigenvectors[0])
 
 print("Time fo NetKet", time() - t0)
 

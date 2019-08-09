@@ -1,0 +1,29 @@
+{
+	"folders": [
+		{
+			"path": "."
+		},
+		{
+			"path": "/mnt/home/jsmith/projects/pbc_casscf"
+		},
+		{
+			"path": "/mnt/home/jsmith/apps/pull_requests/pyscf"
+		},
+		{
+			"path": "/mnt/home/jsmith/apps/Dice"
+		},
+		{
+			"path": "/mnt/home/jsmith/projects/gh_issues"
+		}
+	],
+	"settings": {
+		"python.pythonPath": "/mnt/home/jsmith/miniconda3/envs/omp_mpi/bin/python",
+		"python.linting.pylintEnabled": true,
+		"python.linting.enabled": true,
+		"python.formatting.provider": "black",
+		"clang-format.executable": "/mnt/home/jsmith/miniconda3/envs/omp_mpi/bin/clang-format",
+		"files.associations": {
+			"core": "cpp"
+		},
+	}
+}
